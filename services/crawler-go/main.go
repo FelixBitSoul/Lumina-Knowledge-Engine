@@ -5,80 +5,96 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/PuerkitoBio/goquery" // 新增依赖
 )
 
-// Task 代表一个采集任务
 type Task struct {
 	URL string
 }
 
-// Result 代表采集结果
 type Result struct {
-	URL   string
-	Title string
-	Error error
+	URL     string
+	Title   string
+	Snippet string // 新增：正文片段
+	Error   error
 }
 
 func main() {
 	urls := []string{
-		"https://go.dev",
-		"https://python.org",
-		"https://nextjs.org",
+		"https://go.dev/doc/",
+		"https://www.python.org/doc/",
+		"https://nextjs.org/docs",
 	}
 
 	taskChan := make(chan Task, len(urls))
 	resChan := make(chan Result, len(urls))
 	var wg sync.WaitGroup
 
-	// 1. 启动 Worker 线程池 (限制并发数为 3)
 	for i := 1; i <= 3; i++ {
 		wg.Add(1)
 		go worker(i, taskChan, resChan, &wg)
 	}
 
-	// 2. 分发任务
 	for _, url := range urls {
 		taskChan <- Task{URL: url}
 	}
-	close(taskChan) // 关闭通道，通知 worker 任务分发完毕
+	close(taskChan)
 
-	// 3. 等待所有 worker 完成并关闭结果通道
 	go func() {
 		wg.Wait()
 		close(resChan)
 	}()
 
-	// 4. 打印结果
-	fmt.Println("--- 采集任务开始 ---")
+	fmt.Println("--- Lumina Ingestion Started ---")
 	for res := range resChan {
 		if res.Error != nil {
-			fmt.Printf("[失败] %s: %v\n", res.URL, res.Error)
+			fmt.Printf("[Error] %s: %v\n", res.URL, res.Error)
 		} else {
-			fmt.Printf("[成功] %s | 结果: %s\n", res.URL, res.Title)
+			fmt.Printf("[Success]\n  URL: %s\n  Title: %s\n  Snippet: %s...\n\n",
+				res.URL, res.Title, res.Snippet)
 		}
 	}
 }
 
-// worker 模拟爬虫抓取过程
 func worker(id int, tasks <-chan Task, results chan<- Result, wg *sync.WaitGroup) {
 	defer wg.Done()
+	client := http.Client{Timeout: 10 * time.Second}
+
 	for task := range tasks {
-		fmt.Printf("Worker [%d] 正在抓取: %s\n", id, task.URL)
-
-		// 模拟网络请求
-		client := http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Get(task.URL)
+		if err != nil {
+			results <- Result{URL: task.URL, Error: err}
+			continue
+		}
+		defer resp.Body.Close()
 
-		title := "Unknown"
-		if err == nil {
-			title = resp.Status // 这里暂时拿状态码演示，后续会引入 HTML 解析
-			resp.Body.Close()
+		if resp.StatusCode != 200 {
+			results <- Result{URL: task.URL, Error: fmt.Errorf("status code %d", resp.StatusCode)}
+			continue
+		}
+
+		// 使用 goquery 解析 HTML
+		doc, err := goquery.NewDocumentFromReader(resp.Body)
+		if err != nil {
+			results <- Result{URL: task.URL, Error: err}
+			continue
+		}
+
+		// 提取 Title
+		title := doc.Find("title").Text()
+
+		// 提取第一段正文作为摘要 (Snippet)
+		snippet := doc.Find("p").First().Text()
+		if len(snippet) > 100 {
+			snippet = snippet[:100]
 		}
 
 		results <- Result{
-			URL:   task.URL,
-			Title: title,
-			Error: err,
+			URL:     task.URL,
+			Title:   title,
+			Snippet: snippet,
+			Error:   nil,
 		}
 	}
 }
