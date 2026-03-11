@@ -23,3 +23,6 @@ sdist/
 var/
 wheels/
 *.egg-info/
+
+# Qdrant data (Vector DB storage)
+deployments/qdrant_data/
