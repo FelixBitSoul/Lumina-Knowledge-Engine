@@ -1,21 +1,35 @@
 @import "tailwindcss";
 
-@theme {
-  --variant-dark: .dark &;
-}
-
-/* Lumina Engine - Global Styles
-  We remove the system-default dark media query to allow 
-  'next-themes' to control the dark mode via the .dark class.
+/* 
+  Tailwind v4 dark mode configuration
+  -----------------------------------
+  We explicitly define the `dark:` variant to be driven by the `.dark`
+  class on the root element (html). This works seamlessly with
+  `next-themes` when using `attribute="class"`.
 */
+@custom-variant dark (&:where(.dark, .dark *));
 
+/* Optional: light variant if you ever need `light:` utilities */
+@custom-variant light (&:where(.light, .light *));
+
+/* 
+  Lumina Engine - Global color tokens
+  -----------------------------------
+  These CSS variables are what your components and Tailwind theme
+  ultimately resolve to. `next-themes` toggles `.dark` on <html>,
+  which in turn swaps these values.
+*/
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f172a;
 }
 
-/* Standard Tailwind v4 / Next.js 15 theme configuration 
-*/
+html.dark {
+  --background: #020617; /* near-slate-950 */
+  --foreground: #e5e7eb; /* slate-200 */
+}
+
+/* Standard Tailwind v4 / Next.js 15 theme configuration */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -23,13 +37,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Base resets and smooth transitions 
-*/
+/* Base resets and smooth transitions */
 @layer base {
   body {
     @apply transition-colors duration-300;
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
     font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   }
 }
