@@ -1,51 +1,27 @@
-# Lumina-Knowledge-Engine 🧠
+# Lumina Knowledge Engine
 
-> **An Industrial-grade RAG (Retrieval-Augmented Generation) engine for real-time technology knowledge synchronization.**
+Lumina is a modern RAG (Retrieval-Augmented Generation) system built with Go, Python, and Next.js.
 
-Lumina-Knowledge-Engine is a sophisticated system designed to bridge the gap between static LLMs and fast-evolving web documentation. It leverages a high-performance Go-based crawler for data ingestion and a Python-powered AI pipeline for semantic retrieval.
+## 🚀 System Architecture
+- **Crawler (Go 1.22)**: High-performance web scraper located in `services/crawler-go`.
+- **Brain API (Python 3.11)**: Vector embedding & search service using FastAPI and `sentence-transformers`.
+- **Vector DB (Qdrant)**: High-speed vector storage running in Docker.
+- **Portal (Next.js 15)**: Modern web interface with dark/light mode support.
 
----
+## 🛠 Tech Stack
+- **Backend**: Go (Colly), Python (FastAPI, Qdrant-Client)
+- **AI**: HuggingFace (all-MiniLM-L6-v2)
+- **Frontend**: Next.js 15, Tailwind CSS v4, Lucide Icons
+- **Infrastructure**: Docker Compose
 
-## 🏗️ Architecture Overview
+## 🏗 Project Structure
+- `/services/crawler-go`: Data ingestion logic.
+- `/services/brain-py`: Embedding and semantic search API.
+- `/services/portal-next`: Frontend UI.
+- `/deployments`: Docker and database storage.
 
-The system is built with a modular microservices philosophy:
-
-
-
-* **Ingestion Engine (Go):** A high-concurrency, rate-limited crawler designed for efficient data harvesting.
-* **AI Logic Layer (Python):** Handles document chunking, embedding generation, and RAG-based inference.
-* **Knowledge Portal (Next.js):** A clean, professional UI for querying the engine with stream-based AI responses.
-* **Data Backbone:** Vector database (Milvus/Qdrant) for semantic search, Redis for task orchestration, and PostgreSQL for metadata.
-
----
-
-## 🛠️ Tech Stack
-
-### Backend & AI
-- **Languages:** Go (Concurrency & Scraping), Python 3.10+ (AI Pipeline)
-- **AI Frameworks:** FastAPI, LangChain / LlamaIndex
-- **Databases:** PostgreSQL (Metadata), Redis (Queue), Milvus/Qdrant (Vector Store)
-- **LLM Integration:** DeepSeek / OpenAI API
-
-### Frontend
-- **Framework:** Next.js 15 (App Router), TypeScript
-- **Styling:** Tailwind CSS, Shadcn UI
-- **State & Data:** TanStack Query, Lucide Icons
-
-### Infrastructure (Cloud Native)
-- **Containerization:** Docker & Docker Compose
-- **Orchestration:** Kubernetes (Ready)
-- **CI/CD:** GitHub Actions
-
----
-
-## 📂 Project Structure
-
-```text
-.
-├── services/
-│   ├── crawler-go/      # High-concurrency data ingestion
-│   └── brain-py/        # AI logic & RAG pipeline
-├── web/                 # Next.js frontend application
-├── deployments/         # Docker & K8s configurations
-└── scripts/             # Development & automation tools
+## 🚦 Getting Started
+1. Start Qdrant: `docker-compose -f deployments/docker-compose.yaml up -d`
+2. Start Brain API: `cd services/brain-py && python main.py`
+3. Run Crawler: `cd services/crawler-go && go run main.go`
+4. Start Portal: `cd services/portal-next && npm run dev`
