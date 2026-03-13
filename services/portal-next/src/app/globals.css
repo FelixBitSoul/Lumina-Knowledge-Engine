@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --variant-dark: .dark &;
+}
+
+/* Lumina Engine - Global Styles
+  We remove the system-default dark media query to allow 
+  'next-themes' to control the dark mode via the .dark class.
+*/
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* Standard Tailwind v4 / Next.js 15 theme configuration 
+*/
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Base resets and smooth transitions 
+*/
+@layer base {
+  body {
+    @apply transition-colors duration-300;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  }
+}
+
+/* Custom scrollbar for a professional look 
+*/
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600;
+}

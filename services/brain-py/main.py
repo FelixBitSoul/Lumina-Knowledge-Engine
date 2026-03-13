@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware # Required for cross-origin requests
 from pydantic import BaseModel
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
@@ -8,6 +9,22 @@ import uuid
 import uvicorn
 
 app = FastAPI(title="Lumina Brain - Vector Service")
+
+# --- CORS Configuration ---
+# Define the list of origins that are allowed to make cross-site HTTP requests
+# In development, we allow our Next.js frontend running on localhost:3000
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,           # Allows specific origins
+    allow_credentials=True,          # Allows cookies to be included in requests
+    allow_methods=["*"],             # Allows all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],             # Allows all headers
+)
 
 # 1. Initialize Local Embedding Model
 # This will download a small model (~80MB) on first run
