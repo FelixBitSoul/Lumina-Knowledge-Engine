@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	readability "github.com/go-shiori/go-readability"
@@ -48,6 +49,13 @@ type CrawlTaskConfig struct {
 // CrawlerConfig is the top-level YAML configuration.
 type CrawlerConfig struct {
 	Tasks []CrawlTaskConfig `yaml:"tasks"`
+}
+
+// CrawlOutput carries the result of crawling a single URL plus any discovered links.
+type CrawlOutput struct {
+	Task       Task
+	Result     Result
+	Discovered []string
 }
 
 func loadConfig() (CrawlerConfig, error) {
@@ -250,15 +258,17 @@ func crawlURL(task Task, job *CrawlTaskConfig, client *http.Client, limiter *Rat
 }
 
 // runTask executes a single CrawlTaskConfig: BFS over seeds up to MaxDepth,
-// respecting allowed domains and rate limit. Implemented sequentially for
-// simplicity and to avoid deadlocks.
+// respecting allowed domains and rate limit. Uses a dispatcher + worker pool
+// for concurrency, while all queue and visited state is owned by the dispatcher.
 func runTask(job *CrawlTaskConfig) {
 	if len(job.Seeds) == 0 {
 		fmt.Printf("[Task:%s] No seeds provided, skipping.\n", job.Name)
 		return
 	}
-	if job.MaxDepth <= 0 {
-		job.MaxDepth = 1
+	// Allow max_depth = 0 to mean "only seeds, no link following".
+	// Clamp negative values up to 0.
+	if job.MaxDepth < 0 {
+		job.MaxDepth = 0
 	}
 
 	fmt.Printf("[Task:%s] Starting. Seeds=%d, MaxDepth=%d\n", job.Name, len(job.Seeds), job.MaxDepth)
@@ -268,6 +278,7 @@ func runTask(job *CrawlTaskConfig) {
 
 	client := &http.Client{Timeout: 15 * time.Second}
 
+	// Dispatcher-owned state
 	seen := make(map[string]bool)
 	queue := make([]Task, 0)
 
@@ -283,33 +294,85 @@ func runTask(job *CrawlTaskConfig) {
 		queue = append(queue, Task{URL: seed, Depth: 0, Job: job})
 	}
 
-	for len(queue) > 0 {
-		task := queue[0]
-		queue = queue[1:]
+	if len(queue) == 0 {
+		fmt.Printf("[Task:%s] No valid seeds after filtering domains.\n", job.Name)
+		return
+	}
 
-		discovered, res := crawlURL(task, job, client, limiter)
-		if res.Error != nil {
-			fmt.Printf("[Task:%s] [Error] %s: %v\n", job.Name, res.URL, res.Error)
+	// Channels for worker pool
+	tasksCh := make(chan Task)
+	resultsCh := make(chan CrawlOutput)
+
+	var wg sync.WaitGroup
+	workerCount := 16
+
+	// Start workers
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for t := range tasksCh {
+				discovered, res := crawlURL(t, job, client, limiter)
+				resultsCh <- CrawlOutput{
+					Task:       t,
+					Result:     res,
+					Discovered: discovered,
+				}
+			}
+		}(i + 1)
+	}
+
+	inFlight := 0
+
+	// Helper to dispatch as many tasks as possible up to worker capacity
+	dispatch := func() {
+		for inFlight < workerCount && len(queue) > 0 {
+			t := queue[0]
+			queue = queue[1:]
+			inFlight++
+			tasksCh <- t
+		}
+	}
+
+	// Initial dispatch
+	dispatch()
+
+	for {
+		if inFlight == 0 && len(queue) == 0 {
+			break
+		}
+
+		out := <-resultsCh
+		inFlight--
+
+		if out.Result.Error != nil {
+			fmt.Printf("[Task:%s] [Error] %s: %v\n", job.Name, out.Result.URL, out.Result.Error)
 		} else {
-			fmt.Printf("[Task:%s] [Indexed] %s (%s)\n", job.Name, res.Title, res.URL)
+			fmt.Printf("[Task:%s] [Indexed] %s (%s)\n", job.Name, out.Result.Title, out.Result.URL)
 		}
 
 		// Enqueue newly discovered links for next depths
-		nextDepth := task.Depth + 1
-		if nextDepth > job.MaxDepth {
-			continue
-		}
-		for _, u := range discovered {
-			if !isAllowedDomain(u, job.AllowedDomains) {
-				continue
+		nextDepth := out.Task.Depth + 1
+		if nextDepth <= job.MaxDepth {
+			for _, u := range out.Discovered {
+				if !isAllowedDomain(u, job.AllowedDomains) {
+					continue
+				}
+				if seen[u] {
+					continue
+				}
+				seen[u] = true
+				queue = append(queue, Task{URL: u, Depth: nextDepth, Job: job})
 			}
-			if seen[u] {
-				continue
-			}
-			seen[u] = true
-			queue = append(queue, Task{URL: u, Depth: nextDepth, Job: job})
 		}
+
+		// Try to dispatch more tasks if queue has grown
+		dispatch()
 	}
+
+	// Clean shutdown
+	close(tasksCh)
+	wg.Wait()
 
 	fmt.Printf("[Task:%s] Done.\n", job.Name)
 }
