@@ -1,0 +1,33 @@
+---
+description: Backend responsibilities and deployment conventions for Lumina
+alwaysApply: true
+---
+
+# Backend Language & Responsibility Guidelines
+
+- **Go crawler stays lightweight**  
+  - Go services (especially `services/crawler-go`) should primarily handle:
+    - HTTP fetching
+    - basic DOM selection / link extraction
+    - minimal, cheap cleanup needed for robustness (e.g. trimming, removing scripts/styles when convenient)
+  - **Do NOT** put complex NLP / semantic cleaning / heavy parsing pipelines in Go.
+
+- **Python Brain service owns AI & preprocessing**  
+  - All embedding, semantic logic, and most text preprocessing should live in Python (`services/brain-py`), including:
+    - content normalization, deduplication, and chunking
+    - heuristic or model-based cleaning of HTML → text
+    - any logic tightly coupled to embeddings, RAG, or LLM calls
+  - When in doubt about placing new logic, **default to Python** unless there is a clear performance or infrastructure reason to keep it in Go.
+
+# Deployment & Docker Compose Conventions
+
+- **Windows + Docker is the primary dev environment**  
+  - All new services **must** be runnable via Docker on Windows.
+
+- **Always update `docker-compose.yaml` when adding services**  
+  - When introducing a new backend or long‑running service:
+    - add a corresponding service entry to `deployments/docker-compose.yaml` (or the main compose file you use),
+    - wire up networks, ports, and environment variables needed for local development,
+    - ensure the existing one‑command workflow still works (e.g. `docker-compose -f deployments/docker-compose.yaml up -d`).
+  - Keep compose service names and ports consistent with the existing naming style in this repo.
+
