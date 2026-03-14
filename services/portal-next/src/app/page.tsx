@@ -20,6 +20,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   // Ensure component is mounted to prevent hydration mismatch
@@ -33,20 +34,22 @@ export default function Home() {
   const handleSearch = async () => {
     if (!query.trim()) return;
     setLoading(true);
-    
+    setError(null);
+
     try {
       // Connect to the Python FastAPI search endpoint
       const response = await fetch(
         `http://localhost:8000/search?query=${encodeURIComponent(query)}`
       );
-      
+
       if (!response.ok) throw new Error("Backend service unavailable");
-      
+
       const data = await response.json();
       setResults(data.results || []);
     } catch (error) {
       console.error("Search failed:", error);
-      alert("Failed to connect to the Brain API. Ensure the Python service is running.");
+      setError("Failed to connect to the Brain API. Ensure the Python service is running.");
+      setResults([]);
     } finally {
       setLoading(false);
     }
@@ -118,6 +121,11 @@ export default function Home() {
 
         {/* Results Stream */}
         <section className="space-y-8">
+          {error && (
+            <div className="rounded-2xl border border-red-500/40 bg-red-500/10 text-red-200 px-4 py-3 text-sm font-mono">
+              {error}
+            </div>
+          )}
           {results.map((res, index) => (
             <div 
               key={index} 

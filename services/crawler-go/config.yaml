@@ -1,0 +1,15 @@
+tasks:
+  - name: core-docs
+    seeds:
+      - https://go.dev/doc/
+      - https://www.python.org/doc/
+      - https://nextjs.org/docs
+    max_depth: 3
+    allowed_domains:
+      - go.dev
+      - python.org
+      - nextjs.org
+    content_selector: article
+    rate_limit:
+      requests_per_minute: 30
+

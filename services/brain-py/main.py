@@ -1,4 +1,5 @@
 import os
+import time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware # Required for cross-origin requests
 from pydantic import BaseModel
@@ -26,13 +27,17 @@ app.add_middleware(
     allow_headers=["*"],             # Allows all headers
 )
 
+MODEL_NAME = "all-MiniLM-L6-v2"
+
 # 1. Initialize Local Embedding Model
 # This will download a small model (~80MB) on first run
-model = SentenceTransformer('all-MiniLM-L6-v2')
+model = SentenceTransformer(MODEL_NAME)
 
 # 2. Initialize Qdrant Client
-qdrant_client = QdrantClient(host="localhost", port=6333)
-COLLECTION_NAME = "knowledge_base"
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "knowledge_base")
 
 # Create collection if it doesn't exist
 try:
@@ -43,6 +48,26 @@ except Exception:
         collection_name=COLLECTION_NAME,
         vectors_config=VectorParams(size=384, distance=Distance.COSINE),
     )
+
+
+@app.get("/health")
+async def health():
+    """
+    Lightweight health check for the Brain API.
+    Used by the portal and Docker to verify readiness.
+    """
+    try:
+        qdrant_client.get_collection(collection_name=COLLECTION_NAME)
+        qdrant_status = "up"
+    except Exception:
+        qdrant_status = "down"
+
+    return {
+        "status": "ok",
+        "qdrant": qdrant_status,
+        "model": MODEL_NAME,
+        "collection": COLLECTION_NAME,
+    }
 
 class Document(BaseModel):
     url: str
@@ -57,10 +82,10 @@ async def ingest_document(doc: Document):
     try:
         # Generate vector embedding from content
         vector = model.encode(doc.content).tolist()
-        
+
         # Create a unique point for Qdrant
         point_id = str(uuid.uuid4())
-        
+
         # Upsert into Qdrant
         qdrant_client.upsert(
             collection_name=COLLECTION_NAME,
@@ -71,42 +96,59 @@ async def ingest_document(doc: Document):
                     payload={
                         "url": doc.url,
                         "title": doc.title,
-                        "content": doc.content
-                    }
+                        "content": doc.content,
+                    },
                 )
-            ]
+            ],
         )
-        
+
         print(f"Successfully indexed: {doc.title}")
         return {"status": "success", "point_id": point_id}
     except Exception as e:
         print(f"Error during ingestion: {e}")
         return {"status": "error", "message": str(e)}
 
-# Add a simple Search endpoint for testing
+# Add a semantic search endpoint
 @app.get("/search")
 async def search(query: str, limit: int = 3):
     """
-    Perform semantic search against the vector database
+    Perform semantic search against the vector database.
+    Returns a structured response suitable for the Next.js portal.
     """
+    start_time = time.time()
     query_vector = model.encode(query).tolist()
-    
-    hits = qdrant_client.query_points(
+
+    search_result = qdrant_client.query_points(
         collection_name=COLLECTION_NAME,
         query=query_vector,
-        limit=limit
-    ).points
-    
+        limit=limit,
+        with_payload=True,
+        with_vectors=False,
+    )
+
+    hits = search_result.points
+
     results = []
     for hit in hits:
-        results.append({
-            "score": 0.0,
-            "title": hit.payload.get("title"),
-            "url": hit.payload.get("url"),
-            "content": hit.payload.get("content")[:200]
-        })
-    
-    return {"results": results}
+        payload = hit.payload or {}
+        results.append(
+            {
+                "score": hit.score,
+                "title": payload.get("title"),
+                "url": payload.get("url"),
+                "content": (payload.get("content") or "")[:200],
+            }
+        )
+
+    latency_ms = int((time.time() - start_time) * 1000)
+
+    return {
+        "query": query,
+        "limit": limit,
+        "collection": COLLECTION_NAME,
+        "latency_ms": latency_ms,
+        "results": results,
+    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

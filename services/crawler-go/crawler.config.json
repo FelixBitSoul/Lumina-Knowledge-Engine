@@ -1,0 +1,10 @@
+{
+  "//": "Lumina crawler configuration. Go only controls fetch targets and concurrency.",
+  "urls": [
+    "https://go.dev/doc/",
+    "https://www.python.org/doc/",
+    "https://nextjs.org/docs"
+  ],
+  "worker_count": 3
+}
+
