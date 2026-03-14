@@ -4,12 +4,45 @@ tasks:
       - https://go.dev/doc/
       - https://www.python.org/doc/
       - https://nextjs.org/docs
-    max_depth: 3
+    max_depth: 1
     allowed_domains:
       - go.dev
       - python.org
       - nextjs.org
     content_selector: article
+    user_agent: LuminaCrawler/0.1 (+https://example.com/bot-info)
     rate_limit:
       requests_per_minute: 30
+
+  - name: web-frontends
+    seeds:
+      - https://react.dev/learn
+      - https://tailwindcss.com/docs
+      - https://developer.mozilla.org/en-US/docs/Web/JavaScript
+      - https://www.typescriptlang.org/docs/handbook/intro.html
+    max_depth: 1
+    allowed_domains:
+      - react.dev
+      - tailwindcss.com
+      - developer.mozilla.org
+      - typescriptlang.org
+    content_selector: main
+    user_agent: LuminaCrawler/0.1 (+https://example.com/bot-info)
+    rate_limit:
+      requests_per_minute: 20
+
+  - name: backend-apis
+    seeds:
+      - https://fastapi.tiangolo.com/tutorial/
+      - https://qdrant.tech/documentation/
+      - https://docs.docker.com/get-started/
+    max_depth: 1
+    allowed_domains:
+      - fastapi.tiangolo.com
+      - qdrant.tech
+      - docs.docker.com
+    content_selector: main
+    user_agent: LuminaCrawler/0.1 (+https://example.com/bot-info)
+    rate_limit:
+      requests_per_minute: 15
 
