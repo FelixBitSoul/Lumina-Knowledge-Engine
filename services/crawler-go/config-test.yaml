@@ -2,7 +2,7 @@ tasks:
   - name: core-docs
     seeds:
       - https://go.dev/doc/
-    max_depth: 1
+    max_depth: 2
     allowed_domains:
       - go.dev
     content_selector: article

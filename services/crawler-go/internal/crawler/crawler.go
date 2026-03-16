@@ -1,7 +1,6 @@
 package crawler
 
 import (
-	"bytes"
 	"fmt"
 	"net/url"
 	"strings"
@@ -127,7 +126,7 @@ func (c *Crawler) Run() error {
 		htmlBytes := r.Response.Body
 
 		discoverLinks := currentDepth < c.task.MaxDepth
-		article, err := extract.Extract(pageURL, bytes.NewReader(htmlBytes), c.task.ContentSelector, discoverLinks)
+		article, err := extract.Extract(pageURL, htmlBytes, c.task.ContentSelector, discoverLinks)
 		if err != nil {
 			c.logger("[Task:%s] [ExtractError] %s: %v", c.task.Name, pageURL.String(), err)
 			return
