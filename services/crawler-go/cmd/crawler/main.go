@@ -32,8 +32,15 @@ func main() {
 			logger("[Task:%s] [ConfigError] %v", t.Name, err)
 			continue
 		}
-		logger("[Task:%s] Starting. Seeds=%d, MaxDepth=%d, Concurrency=%d, RPM=%d",
-			t.Name, len(t.Seeds), t.MaxDepth, t.Concurrency, t.RateLimit.RequestsPerMinute)
+		logger("[Task:%s] Starting. Seeds=%d, MaxDepth=%d, Concurrency=%d, RPM=%d, Timeout=%ds, RetryMax=%d",
+			t.Name,
+			len(t.Seeds),
+			t.MaxDepth,
+			t.Concurrency,
+			t.RateLimit.RequestsPerMinute,
+			t.RequestTimeoutSeconds,
+			t.Retry.MaxAttempts,
+		)
 
 		c := crawler.New(t, brain, logger)
 		if err := c.Run(); err != nil {

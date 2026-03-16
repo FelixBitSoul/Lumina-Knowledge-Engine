@@ -4,7 +4,7 @@ tasks:
       - https://go.dev/doc/
       - https://www.python.org/doc/
       - https://nextjs.org/docs
-    max_depth: 0
+    max_depth: 1
     allowed_domains:
       - go.dev
       - python.org
@@ -20,7 +20,7 @@ tasks:
       - https://tailwindcss.com/docs
       - https://developer.mozilla.org/en-US/docs/Web/JavaScript
       - https://www.typescriptlang.org/docs/handbook/intro.html
-    max_depth: 0
+    max_depth: 1
     allowed_domains:
       - react.dev
       - tailwindcss.com
@@ -36,7 +36,7 @@ tasks:
       - https://fastapi.tiangolo.com/tutorial/
       - https://qdrant.tech/documentation/
       - https://docs.docker.com/get-started/
-    max_depth: 0
+    max_depth: 1
     allowed_domains:
       - fastapi.tiangolo.com
       - qdrant.tech

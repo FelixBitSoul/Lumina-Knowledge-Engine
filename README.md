@@ -23,5 +23,9 @@ Lumina is a modern RAG (Retrieval-Augmented Generation) system built with Go, Py
 ## 🚦 Getting Started
 1. Start Qdrant: `docker-compose -f deployments/docker-compose.yaml up -d`
 2. Start Brain API: `cd services/brain-py && python main.py`
-3. Run Crawler: `cd services/crawler-go && go run main.go`
+3. Run Crawler: `cd services/crawler-go && go run ./cmd/crawler`
 4. Start Portal: `cd services/portal-next && npm run dev`
+
+## Module docs
+
+- Crawler details: `services/crawler-go/README.md`

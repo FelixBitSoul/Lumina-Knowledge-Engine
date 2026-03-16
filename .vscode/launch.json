@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Crawler",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/services/crawler-go/cmd/crawler/main.go", 
+            "cwd": "${workspaceFolder}/services/crawler-go", 
+            "args": [] 
+        }
+    ]
+}

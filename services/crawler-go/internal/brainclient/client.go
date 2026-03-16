@@ -39,15 +39,16 @@ func (c *Client) Ingest(doc Document) error {
 		return fmt.Errorf("marshal ingest payload: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, c.ingestURL, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("build ingest request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
 	// basic retry for transient errors
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
+		// Build a fresh request each attempt (do not reuse bodies/readers).
+		req, err := http.NewRequest(http.MethodPost, c.ingestURL, bytes.NewReader(body))
+		if err != nil {
+			return fmt.Errorf("build ingest request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+
 		resp, err := c.http.Do(req)
 		if err != nil {
 			lastErr = err

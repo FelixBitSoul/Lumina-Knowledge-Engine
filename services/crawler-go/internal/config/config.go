@@ -12,16 +12,27 @@ type RateLimit struct {
 	RequestsPerMinute int `yaml:"requests_per_minute"`
 }
 
+type Retry struct {
+	// MaxAttempts includes the first request. Example: 3 = initial try + 2 retries.
+	MaxAttempts int `yaml:"max_attempts"`
+	// BackoffSeconds is a simple linear backoff multiplier (attempt index * backoff).
+	BackoffSeconds int `yaml:"backoff_seconds"`
+	// RetryOnStatus is the list of HTTP status codes to retry on (e.g. [429, 500, 502, 503, 504]).
+	RetryOnStatus []int `yaml:"retry_on_status"`
+}
+
 // Task represents a logical crawling job driven by configuration.
 type Task struct {
 	Name            string    `yaml:"name"`
 	Seeds           []string  `yaml:"seeds"`
 	MaxDepth        int       `yaml:"max_depth"`
 	Concurrency     int       `yaml:"concurrency"`
+	RequestTimeoutSeconds int  `yaml:"request_timeout_seconds"`
 	AllowedDomains  []string  `yaml:"allowed_domains"`
 	ContentSelector string    `yaml:"content_selector"`
 	UserAgent       string    `yaml:"user_agent"`
 	RateLimit       RateLimit `yaml:"rate_limit"`
+	Retry           Retry     `yaml:"retry"`
 }
 
 // Config is the top-level crawler configuration.
@@ -59,8 +70,21 @@ func Load(defaultPath string) (*Config, error) {
 		if t.Concurrency <= 0 {
 			t.Concurrency = 8
 		}
+		if t.RequestTimeoutSeconds <= 0 {
+			t.RequestTimeoutSeconds = 15
+		}
 		if t.RateLimit.RequestsPerMinute <= 0 {
 			t.RateLimit.RequestsPerMinute = 30
+		}
+
+		if t.Retry.MaxAttempts <= 0 {
+			t.Retry.MaxAttempts = 3
+		}
+		if t.Retry.BackoffSeconds < 0 {
+			t.Retry.BackoffSeconds = 0
+		}
+		if len(t.Retry.RetryOnStatus) == 0 {
+			t.Retry.RetryOnStatus = []int{429, 500, 502, 503, 504}
 		}
 	}
 
