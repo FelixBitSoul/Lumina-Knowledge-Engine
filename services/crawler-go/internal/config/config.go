@@ -17,6 +17,7 @@ type Task struct {
 	Name            string    `yaml:"name"`
 	Seeds           []string  `yaml:"seeds"`
 	MaxDepth        int       `yaml:"max_depth"`
+	Concurrency     int       `yaml:"concurrency"`
 	AllowedDomains  []string  `yaml:"allowed_domains"`
 	ContentSelector string    `yaml:"content_selector"`
 	UserAgent       string    `yaml:"user_agent"`
@@ -54,6 +55,9 @@ func Load(defaultPath string) (*Config, error) {
 		}
 		if t.MaxDepth < 0 {
 			t.MaxDepth = 0
+		}
+		if t.Concurrency <= 0 {
+			t.Concurrency = 8
 		}
 		if t.RateLimit.RequestsPerMinute <= 0 {
 			t.RateLimit.RequestsPerMinute = 30
