@@ -23,16 +23,16 @@ type Retry struct {
 
 // Task represents a logical crawling job driven by configuration.
 type Task struct {
-	Name            string    `yaml:"name"`
-	Seeds           []string  `yaml:"seeds"`
-	MaxDepth        int       `yaml:"max_depth"`
-	Concurrency     int       `yaml:"concurrency"`
-	RequestTimeoutSeconds int  `yaml:"request_timeout_seconds"`
-	AllowedDomains  []string  `yaml:"allowed_domains"`
-	ContentSelector string    `yaml:"content_selector"`
-	UserAgent       string    `yaml:"user_agent"`
-	RateLimit       RateLimit `yaml:"rate_limit"`
-	Retry           Retry     `yaml:"retry"`
+	Name                  string    `yaml:"name"`
+	Seeds                 []string  `yaml:"seeds"`
+	MaxDepth              int       `yaml:"max_depth"`
+	Concurrency           int       `yaml:"concurrency"`
+	RequestTimeoutSeconds int       `yaml:"request_timeout_seconds"`
+	AllowedDomains        []string  `yaml:"allowed_domains"`
+	ContentSelector       string    `yaml:"content_selector"`
+	UserAgent             string    `yaml:"user_agent"`
+	RateLimit             RateLimit `yaml:"rate_limit"`
+	Retry                 Retry     `yaml:"retry"`
 }
 
 // Config is the top-level crawler configuration.
@@ -52,6 +52,7 @@ func Load(defaultPath string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read config %q: %w", path, err)
 	}
+	fmt.Printf("load config from path: %s\n", path)
 
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
@@ -90,4 +91,3 @@ func Load(defaultPath string) (*Config, error) {
 
 	return &cfg, nil
 }
-

@@ -1,11 +1,11 @@
 package extract
 
 import (
-	"bytes"
+	"io"
 	"net/url"
 
-	readability "github.com/go-shiori/go-readability"
 	"github.com/PuerkitoBio/goquery"
+	readability "github.com/go-shiori/go-readability"
 )
 
 type Article struct {
@@ -16,8 +16,8 @@ type Article struct {
 
 // Extract extracts main article text using go-readability, optionally refines
 // it via a CSS selector, and (optionally) discovers links from the HTML.
-func Extract(pageURL *url.URL, html []byte, selector string, discoverLinks bool) (Article, error) {
-	article, err := readability.FromReader(bytes.NewReader(html), pageURL)
+func Extract(pageURL *url.URL, html io.Reader, selector string, discoverLinks bool) (Article, error) {
+	article, err := readability.FromReader(html, pageURL)
 	if err != nil {
 		return Article{}, err
 	}
@@ -31,7 +31,7 @@ func Extract(pageURL *url.URL, html []byte, selector string, discoverLinks bool)
 		return out, nil
 	}
 
-	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(html))
+	doc, err := goquery.NewDocumentFromReader(html)
 	if err != nil {
 		return out, nil
 	}
@@ -59,4 +59,3 @@ func Extract(pageURL *url.URL, html []byte, selector string, discoverLinks bool)
 
 	return out, nil
 }
-

@@ -1,0 +1,13 @@
+tasks:
+  - name: core-docs
+    seeds:
+      - https://go.dev/doc/
+    max_depth: 1
+    allowed_domains:
+      - go.dev
+    content_selector: article
+    user_agent: LuminaCrawler/0.1 (+https://example.com/bot-info)
+    rate_limit:
+      requests_per_minute: 60
+  
+

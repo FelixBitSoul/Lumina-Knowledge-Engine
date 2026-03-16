@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
 	"strings"
@@ -25,7 +26,7 @@ func New(task config.Task, brain *brainclient.Client, logger func(format string,
 	}
 	return &Crawler{
 		task:   task,
-		brain: brain,
+		brain:  brain,
 		logger: logger,
 	}
 }
@@ -97,7 +98,7 @@ func (c *Crawler) Run() error {
 	}
 
 	collector.OnRequest(func(r *colly.Request) {
-		c.logger("[Task:%s] GET %s", c.task.Name, r.URL.String())
+		c.logger("[Task:%s] GET %s current depth: %d", c.task.Name, r.URL.String(), r.Depth)
 	})
 
 	collector.OnError(func(r *colly.Response, err error) {
@@ -109,23 +110,24 @@ func (c *Crawler) Run() error {
 		c.logger("[Task:%s] [Error] %v", c.task.Name, err)
 	})
 
-	collector.OnResponse(func(r *colly.Response) {
+	collector.OnHTML("html", func(r *colly.HTMLElement) {
 		pageURL := r.Request.URL
-		// map Colly depth (seed=1) to config depth (seed=0)
-		configDepth := r.Request.Depth - 1
+		currentDepth := r.Request.Depth
 
-		if _, ok := retryOn[r.StatusCode]; ok {
-			scheduleRetry(r.Request, fmt.Sprintf("status=%d", r.StatusCode))
+		if _, ok := retryOn[r.Response.StatusCode]; ok {
+			scheduleRetry(r.Request, fmt.Sprintf("status=%d", r.Response.StatusCode))
 			return
 		}
-		if r.StatusCode < 200 || r.StatusCode >= 300 {
+		if r.Response.StatusCode < 200 || r.Response.StatusCode >= 300 {
 			// Non-success response; don't ingest.
-			c.logger("[Task:%s] [HTTP] %s status=%d", c.task.Name, pageURL.String(), r.StatusCode)
+			c.logger("[Task:%s] [HTTP] %s status=%d", c.task.Name, pageURL.String(), r.Response.StatusCode)
 			return
 		}
 
-		discoverLinks := configDepth < c.task.MaxDepth
-		article, err := extract.Extract(pageURL, r.Body, c.task.ContentSelector, discoverLinks)
+		htmlBytes := r.Response.Body
+
+		discoverLinks := currentDepth < c.task.MaxDepth
+		article, err := extract.Extract(pageURL, bytes.NewReader(htmlBytes), c.task.ContentSelector, discoverLinks)
 		if err != nil {
 			c.logger("[Task:%s] [ExtractError] %s: %v", c.task.Name, pageURL.String(), err)
 			return
@@ -142,7 +144,7 @@ func (c *Crawler) Run() error {
 		// Schedule discovered links (Colly enforces MaxDepth + AllowedDomains too)
 		if discoverLinks {
 			for _, link := range article.Discovered {
-				c.tryVisit(collector, pageURL, link)
+				c.tryVisit(r.Request, pageURL, link)
 			}
 		}
 	})
@@ -161,7 +163,7 @@ func (c *Crawler) Run() error {
 	return nil
 }
 
-func (c *Crawler) tryVisit(collector *colly.Collector, base *url.URL, raw string) {
+func (c *Crawler) tryVisit(parentRequest *colly.Request, base *url.URL, raw string) {
 	u, err := base.Parse(raw)
 	if err != nil {
 		return
@@ -169,7 +171,7 @@ func (c *Crawler) tryVisit(collector *colly.Collector, base *url.URL, raw string
 
 	normalized := normalizeURL(u.String())
 	// Colly handles allowed domains, max depth, and URL revisit prevention.
-	_ = collector.Visit(normalized)
+	_ = parentRequest.Visit(normalized)
 }
 
 func normalizeURL(raw string) string {
@@ -183,23 +185,6 @@ func normalizeURL(raw string) string {
 		u.Path = strings.TrimSuffix(u.Path, "/")
 	}
 	return u.String()
-}
-
-func isAllowedDomain(rawURL string, allowed []string) bool {
-	if len(allowed) == 0 {
-		return true
-	}
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return false
-	}
-	host := u.Hostname()
-	for _, d := range allowed {
-		if host == d || host == "www."+d {
-			return true
-		}
-	}
-	return false
 }
 
 func ValidateTask(t config.Task) error {
@@ -217,4 +202,3 @@ func ValidateTask(t config.Task) error {
 	}
 	return nil
 }
-

@@ -8,7 +8,10 @@
             "mode": "auto",
             "program": "${workspaceFolder}/services/crawler-go/cmd/crawler/main.go", 
             "cwd": "${workspaceFolder}/services/crawler-go", 
-            "args": [] 
+            "args": [],
+            "env": {
+                "CRAWLER_CONFIG": "config-test.yaml" 
+            } 
         }
     ]
 }
