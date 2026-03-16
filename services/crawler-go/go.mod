@@ -3,6 +3,7 @@ module github.com/FelixBitSoul/lumina/crawler
 go 1.24.0
 
 require (
+	github.com/gocolly/colly/v2 v2.2.0
 	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/go-shiori/go-readability v0.0.0-20251205110129-5db1dc9836f0
 	gopkg.in/yaml.v3 v3.0.1
