@@ -96,7 +96,7 @@ services:
       - "6333:6333"  # REST API
       - "6334:6334"  # gRPC API
     volumes:
-      - qdrant_storage:/qdrant/storage
+      - qdrant_data:/qdrant/storage
       - ./deployments/qdrant/config.yaml:/qdrant/config/production.yaml:ro
     environment:
       - QDRANT__SERVICE__HTTP_PORT=6333
@@ -195,7 +195,7 @@ services:
     command: redis-server --appendonly yes
 
 volumes:
-  qdrant_storage:
+  qdrant_data:
     driver: local
   brain_models:  # Model cache for Brain API
     driver: local
@@ -463,11 +463,11 @@ docker-compose up -d --no-deps brain-api
 ### Maintenance Commands
 ```bash
 # Backup data
-docker run --rm -v lumina_qdrant_storage:/data -v $(pwd):/backup \
+docker run --rm -v lumina_qdrant_data:/data -v $(pwd):/backup \
   alpine tar czf /backup/qdrant-backup-$(date +%Y%m%d).tar.gz -C /data .
 
 # Restore data
-docker run --rm -v lumina_qdrant_storage:/data -v $(pwd):/backup \
+docker run --rm -v lumina_qdrant_data:/data -v $(pwd):/backup \
   alpine tar xzf /backup/qdrant-backup-20240317.tar.gz -C /data
 
 # Clean up
@@ -493,7 +493,7 @@ services:
     networks:
       - lumina-internal
       - lumina-external
-  
+
   qdrant:
     networks:
       - lumina-internal
