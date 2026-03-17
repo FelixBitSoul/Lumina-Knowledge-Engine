@@ -34,6 +34,8 @@ func Extract(pageURL *url.URL, htmlbytes []byte, selector string, discoverLinks 
 
 	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(htmlbytes))
 	if err != nil {
+		// Log parsing error but still return extracted content from readability
+		fmt.Printf("[Extract] goquery parsing warning for %s: %v\n", pageURL.String(), err)
 		return out, nil
 	}
 
@@ -58,7 +60,6 @@ func Extract(pageURL *url.URL, htmlbytes []byte, selector string, discoverLinks 
 		})
 	} else {
 		out.Discovered = []string{}
-		fmt.Println("pageurl:", pageURL.String(), "discoverLinks is false")
 	}
 
 	return out, nil

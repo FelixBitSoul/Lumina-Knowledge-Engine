@@ -10,6 +10,9 @@
 1. **Theme Switching**: The toggle button is not triggering the dark mode correctly in Tailwind v4. (Check `globals.css` @theme config).
 2. **Data Cleaning**: Go crawler grabs raw HTML warnings; needs better content extraction.
 
+## Go Code Guidelines
+- **HTTP Resource Management**: Ensure response bodies are fully consumed for TCP connection reuse. Read with `io.ReadAll` or drain with `io.Copy(io.Discard, resp.Body)` before closing. In retry loops, use immediate cleanup with anonymous functions.
+
 ## Future Goals (Next Steps)
 1. **Chunking**: Implement text splitting in Python before embedding.
 2. **LLM Integration**: Connect search results to DeepSeek/OpenAI for summary answers.

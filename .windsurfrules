@@ -1,0 +1,240 @@
+# Windsurf Rules for Lumina Knowledge Engine
+
+> Project: Lumina Knowledge Engine - A modern RAG system for semantic document search
+> Architecture: Go (Crawler) + Python/FastAPI (Brain) + Next.js 15 (Portal) + Qdrant (Vector DB)
+
+---
+
+## 🎯 Project Overview
+
+**Current Status (MVP Complete)**:
+- ✅ Go Crawler fetches HTML and sends JSON to Python
+- ✅ Python Brain API embeds content and stores in Qdrant
+- ✅ Next.js 15 Portal connects to Python for semantic search
+- ✅ Dark/Light mode via next-themes (Tailwind v4)
+
+**Known Issues**:
+1. Theme toggle button not triggering dark mode correctly (check `globals.css` @theme config)
+2. Go crawler grabs raw HTML warnings; needs better content extraction
+
+**Next Goals**:
+1. Text chunking in Python before embedding
+2. LLM integration (DeepSeek/OpenAI) for summary answers
+3. PDF/Markdown file ingestion support
+
+---
+
+## 📋 AI Assistant Responsibilities
+
+### 1. Documentation-First Development
+
+**CRITICAL**: When making code changes that affect functionality, configuration, or architecture, you **MUST** update the corresponding documentation.
+
+**Change → Documentation Mapping**:
+| If you modify... | Then update... |
+|------------------|----------------|
+| `services/brain-py/*.py` | `docs/api/brain-api.md`, `docs/api/openapi/*.yaml` |
+| `services/crawler-go/*.go` | `docs/api/crawler-config.md` |
+| `services/portal-next/*.tsx` | `docs/api/portal-integration.md` |
+| `deployments/*` | `docs/deployment/*.md` |
+| `README.md` | Check if `docs/README.md` needs updates |
+| Any config files | Corresponding configuration documentation |
+
+### 2. Language-Specific Guidelines
+
+**Before writing code, read the relevant style guide**:
+
+- **Go (Crawler)**: `docs/guidelines/GO_STYLE_GUIDE.md`
+  - Formatting: `gofmt`, `goimports`
+  - **CRITICAL: HTTP Client Resource Management** - Ensure response bodies are fully consumed for TCP connection reuse. Read with `io.ReadAll` or drain with `io.Copy(io.Discard, resp.Body)` before closing. In retry loops, use immediate cleanup with anonymous functions.
+  - Lightweight processing only - no complex NLP in Go
+
+- **Python (Brain API)**: `docs/guidelines/PYTHON_STYLE_GUIDE.md`
+  - Formatting: `black`, `isort`
+  - Type annotations mandatory (Pydantic models)
+  - All AI/NLP logic belongs here
+
+- **TypeScript (Portal)**: `docs/guidelines/TYPESCRIPT_STYLE_GUIDE.md`
+  - Formatting: `prettier`, `eslint`
+  - Next.js 15 App Router patterns
+  - Tailwind v4 with `@theme` config
+
+### 3. Architecture Boundaries
+
+**Go Crawler Responsibilities**:
+- HTTP fetching with rate limiting
+- Basic DOM selection and link extraction
+- Minimal cleanup (trimming, script/style removal)
+- **DO NOT** implement: complex NLP, semantic cleaning, heavy parsing
+
+**Python Brain Service Responsibilities**:
+- All embedding generation (sentence-transformers)
+- Content normalization, deduplication, chunking
+- HTML → text cleaning with heuristics or models
+- RAG and LLM integration logic
+- **Default to Python** unless clear performance reason for Go
+
+**Portal Frontend Responsibilities**:
+- Search UI with Next.js 15
+- API integration with Brain service
+- Dark/light mode with next-themes
+- Responsive design with Tailwind CSS
+
+---
+
+## 🛠 Development Environment
+
+### Primary Environment
+- **Windows + Docker** is the primary dev environment
+- All services must be runnable via Docker on Windows
+
+### One-Command Workflow
+```bash
+# Start all services
+docker-compose -f deployments/docker-compose.yaml up -d
+
+# Check health
+curl http://localhost:8000/health
+curl http://localhost:3000
+curl http://localhost:6333/health
+```
+
+### When Adding New Services
+1. Add service entry to `deployments/docker-compose.yaml`
+2. Wire up networks, ports, environment variables
+3. Ensure one-command workflow still works
+4. Keep naming consistent with existing style
+
+---
+
+## 📝 Code Quality Requirements
+
+### Pre-Commit Checklist
+
+**Go**:
+```bash
+cd services/crawler-go
+gofmt -w .
+goimports -w .
+go vet ./...
+go test ./...
+```
+
+**Python**:
+```bash
+cd services/brain-py
+black .
+isort .
+flake8 .
+mypy .
+pytest
+```
+
+**TypeScript**:
+```bash
+cd services/portal-next
+prettier --write .
+eslint . --fix
+tsc --noEmit
+```
+
+### Commit Messages
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`
+
+Scopes: `crawler`, `brain`, `portal`, `docs`, `deploy`, `api`
+
+---
+
+## 🐳 Docker Conventions
+
+### Service Structure
+All services must include:
+- `Dockerfile` with multi-stage build (for production)
+- Health check endpoint
+- Proper `.dockerignore`
+- Environment variable documentation
+
+### Docker Compose
+- Use profiles for optional services (e.g., `crawler`)
+- Define custom networks (`lumina-network`)
+- Use named volumes for persistence
+- Include dependency chain with `depends_on` + `condition: service_healthy`
+
+---
+
+## 🧪 Testing Standards
+
+**Minimum Coverage**:
+- `crawler-go`: 70%
+- `brain-py`: 75%
+- `portal-next`: 60%
+
+**New Features**: Must include tests (unit + integration)
+**Bug Fixes**: Must include regression test
+
+---
+
+## 📚 Documentation Standards
+
+### When to Document
+- API endpoints added/modified
+- Configuration options changed
+- Environment variables added
+- Architecture or data flow changed
+- Deployment procedures updated
+
+### Documentation Location
+- API docs: `docs/api/`
+- Architecture: `docs/architecture/`
+- Deployment: `docs/deployment/`
+- Style guides: `docs/guidelines/`
+- Product requirements: `docs/PRD.md`
+
+### Quality Requirements
+- Include working examples
+- Document error scenarios
+- Keep version numbers current
+- Use clear, consistent terminology
+
+---
+
+## 🔗 Key References
+
+- **Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md)
+- **AI Collaboration**: [AI_COLLABORATION_GUIDE.md](./AI_COLLABORATION_GUIDE.md)
+- **Technical Guidelines**: [docs/guidelines/](./docs/guidelines/)
+- **Product Requirements**: [docs/PRD.md](./docs/PRD.md)
+- **Architecture**: [docs/architecture/system-overview.md](./docs/architecture/system-overview.md)
+
+---
+
+## ⚡ Quick Decisions
+
+### Where to place new logic?
+1. Heavy processing/AI/NLP → **Python (Brain)**
+2. Network I/O, scraping → **Go (Crawler)**
+3. UI, user interaction → **Next.js (Portal)**
+
+### Should I update docs?
+**YES** - If the change affects:
+- How users interact with the system
+- API contracts
+- Configuration options
+- Deployment process
+
+### Test in Docker?
+**ALWAYS** - Verify your changes work in the Docker environment before committing.
+
+---
+
+**Remember**: Good documentation is as important as good code. When in doubt, document it!

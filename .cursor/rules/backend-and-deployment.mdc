@@ -7,7 +7,7 @@ alwaysApply: true
 
 - **Go crawler stays lightweight**  
   - Go services (especially `services/crawler-go`) should primarily handle:
-    - HTTP fetching
+    - HTTP fetching (ensure response bodies are fully consumed to enable TCP connection reuse - read with `io.ReadAll` or drain with `io.Copy(io.Discard, resp.Body)` before closing)
     - basic DOM selection / link extraction
     - minimal, cheap cleanup needed for robustness (e.g. trimming, removing scripts/styles when convenient)
   - **Do NOT** put complex NLP / semantic cleaning / heavy parsing pipelines in Go.

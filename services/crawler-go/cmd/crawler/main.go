@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	cfg, err := config.Load("config.yaml")
+	cfg, err := config.Load("crawler-config.yaml")
 	if err != nil {
 		fmt.Printf("[Crawler] Failed to load config: %v\n", err)
 		return
@@ -49,4 +49,3 @@ func main() {
 		logger("[Task:%s] Done.", t.Name)
 	}
 }
-

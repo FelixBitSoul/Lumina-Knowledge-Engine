@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -55,7 +56,19 @@ func (c *Client) Ingest(doc Document) error {
 			time.Sleep(time.Duration(attempt+1) * time.Second)
 			continue
 		}
-		resp.Body.Close()
+
+		// Use an anonymous function to ensure cleanup happens immediately
+		// after processing, rather than waiting for the entire Ingest function to return.
+		func() {
+			// defer ensures the body is closed even if a panic or early return occurs
+			defer resp.Body.Close()
+
+			// Drain the response body to allow the default HTTP Transport to reuse
+			// the underlying TCP connection (Keep-Alive).
+			// Failing to drain prevents connection pooling and leads to resource exhaustion.
+			_, _ = io.Copy(io.Discard, resp.Body)
+		}()
+
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return nil
 		}
@@ -65,4 +78,3 @@ func (c *Client) Ingest(doc Document) error {
 
 	return lastErr
 }
-

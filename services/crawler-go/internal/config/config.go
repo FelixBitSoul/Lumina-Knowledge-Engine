@@ -65,8 +65,8 @@ func Load(defaultPath string) (*Config, error) {
 		if t.Name == "" {
 			t.Name = fmt.Sprintf("task-%d", i+1)
 		}
-		if t.MaxDepth < 0 {
-			t.MaxDepth = 0
+		if t.MaxDepth < 1 {
+			t.MaxDepth = 1
 		}
 		if t.Concurrency <= 0 {
 			t.Concurrency = 8

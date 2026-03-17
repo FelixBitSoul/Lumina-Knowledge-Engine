@@ -1,0 +1,483 @@
+openapi: 3.0.3
+info:
+  title: Lumina Brain API
+  description: |
+    Vector processing and semantic search service for the Lumina Knowledge Engine.
+    
+    This API provides document ingestion, vector embedding generation, and semantic search capabilities.
+    
+    ## Features
+    - Document ingestion with automatic vector embedding
+    - Semantic similarity search
+    - Health monitoring and status checking
+    - RESTful JSON API with OpenAPI documentation
+    
+    ## Technology Stack
+    - **Framework**: FastAPI (Python 3.11)
+    - **Embedding Model**: all-MiniLM-L6-v2 (384 dimensions)
+    - **Vector Database**: Qdrant
+    - **Similarity Metric**: COSINE
+  
+  version: 1.0.0
+  contact:
+    name: Lumina Development Team
+    email: dev@lumina.example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.lumina.example.com
+    description: Production server
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Service health check
+      description: |
+        Checks the health status of the Brain API and its dependencies.
+        
+        Returns service status, database connectivity, model information, and collection details.
+        
+        Use this endpoint for:
+        - Service monitoring and health checks
+        - Dependency verification
+        - Load balancer health checks
+      operationId: health_check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  $ref: '#/components/examples/HealthyResponse'
+                unhealthy:
+                  $ref: '#/components/examples/UnhealthyResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                message: "Database connection failed"
+
+  /ingest:
+    post:
+      tags:
+        - Documents
+      summary: Ingest document
+      description: |
+        Process a document and store its vector embedding in the database.
+        
+        The endpoint:
+        1. Validates the input document
+        2. Generates a vector embedding using the configured model
+        3. Stores the vector and metadata in Qdrant
+        4. Returns a unique point ID for reference
+        
+        ## Content Processing
+        - HTML tags are automatically stripped
+        - Text is normalized and cleaned
+        - Minimum content length: 10 characters
+        - Maximum content length: 1,000,000 characters
+      operationId: ingest_document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Document'
+            examples:
+              valid_document:
+                $ref: '#/components/examples/ValidDocument'
+              technical_doc:
+                $ref: '#/components/examples/TechnicalDocument'
+      responses:
+        '200':
+          description: Document successfully ingested
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+              examples:
+                success:
+                  $ref: '#/components/examples/IngestSuccess'
+        '400':
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validation_error:
+                  $ref: '#/components/examples/ValidationError'
+        '500':
+          description: Processing error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                processing_error:
+                  $ref: '#/components/examples/ProcessingError'
+
+  /search:
+    get:
+      tags:
+        - Search
+      summary: Semantic search
+      description: |
+        Perform semantic similarity search across stored documents.
+        
+        The search process:
+        1. Encodes the query using the same embedding model
+        2. Performs vector similarity search in Qdrant
+        3. Returns ranked results with similarity scores
+        
+        ## Search Behavior
+        - Uses COSINE similarity for matching
+        - Returns results sorted by relevance (highest score first)
+        - Includes content preview (first 200 characters)
+        - Supports configurable result limits (1-20)
+        
+        ## Query Tips
+        - Use natural language questions
+        - Include technical terms for better matching
+        - Try different phrasings for varied results
+      operationId: semantic_search
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: Search query text
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 500
+            pattern: '^[^\s].*[^\s]$'
+          example: "how to install docker"
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 3
+          example: 5
+      responses:
+        '200':
+          description: Search completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+              examples:
+                search_results:
+                  $ref: '#/components/examples/SearchResults'
+                no_results:
+                  $ref: '#/components/examples/NoResults'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_query:
+                  $ref: '#/components/examples/InvalidQuery'
+        '500':
+          description: Search processing error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                search_error:
+                  $ref: '#/components/examples/SearchError'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      description: Health check response
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+          description: Overall service status
+        qdrant:
+          type: string
+          enum: [up, down]
+          description: Vector database status
+        model:
+          type: string
+          description: Name of the embedding model
+        collection:
+          type: string
+          description: Name of the vector collection
+      required:
+        - status
+        - qdrant
+        - model
+        - collection
+      example:
+        status: ok
+        qdrant: up
+        model: all-MiniLM-L6-v2
+        collection: knowledge_base
+
+    Document:
+      type: object
+      description: Document to be ingested
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Valid URL of the document source
+          maxLength: 2048
+          example: "https://docs.docker.com/get-started/"
+        title:
+          type: string
+          description: Document title
+          minLength: 1
+          maxLength: 200
+          example: "Docker Getting Started"
+        content:
+          type: string
+          description: Cleaned text content of the document
+          minLength: 10
+          maxLength: 1000000
+          example: "Docker is a platform for developing, shipping, and running applications in containers..."
+      required:
+        - url
+        - title
+        - content
+
+    IngestResponse:
+      type: object
+      description: Document ingestion response
+      properties:
+        status:
+          type: string
+          enum: [success, error]
+          description: Ingestion operation status
+        point_id:
+          type: string
+          format: uuid
+          description: Unique identifier of the stored vector point
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      required:
+        - status
+        - point_id
+
+    SearchResponse:
+      type: object
+      description: Semantic search response
+      properties:
+        query:
+          type: string
+          description: The search query that was processed
+          example: "how to install docker"
+        limit:
+          type: integer
+          description: Maximum number of results requested
+          example: 5
+        collection:
+          type: string
+          description: Name of the searched collection
+          example: "knowledge_base"
+        latency_ms:
+          type: integer
+          description: Search processing time in milliseconds
+          example: 45
+        results:
+          type: array
+          description: Search results ranked by relevance
+          items:
+            $ref: '#/components/schemas/SearchResult'
+      required:
+        - query
+        - limit
+        - collection
+        - latency_ms
+        - results
+
+    SearchResult:
+      type: object
+      description: Individual search result
+      properties:
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Similarity score (0.0 = no match, 1.0 = perfect match)
+          example: 0.95
+        title:
+          type: string
+          description: Document title
+          example: "Docker Installation Guide"
+        url:
+          type: string
+          format: uri
+          description: Source URL of the document
+          example: "https://docs.docker.com/get-started/"
+        content:
+          type: string
+          description: Content preview (first 200 characters)
+          maxLength: 200
+          example: "Docker is a platform for developing, shipping, and running applications in containers..."
+      required:
+        - score
+        - title
+        - url
+        - content
+
+    ErrorResponse:
+      type: object
+      description: Standard error response
+      properties:
+        status:
+          type: string
+          enum: [error]
+          description: Error status
+        message:
+          type: string
+          description: Human-readable error description
+          example: "Invalid URL format"
+        error_code:
+          type: string
+          description: Machine-readable error code
+          example: "INVALID_URL"
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+          example: "2026-03-17T12:00:00Z"
+      required:
+        - status
+        - message
+
+  examples:
+    HealthyResponse:
+      summary: Service is healthy
+      value:
+        status: ok
+        qdrant: up
+        model: all-MiniLM-L6-v2
+        collection: knowledge_base
+
+    UnhealthyResponse:
+      summary: Service has issues
+      value:
+        status: error
+        qdrant: down
+        model: all-MiniLM-L6-v2
+        collection: knowledge_base
+
+    ValidDocument:
+      summary: Standard document
+      value:
+        url: "https://docs.docker.com/get-started/"
+        title: "Docker Getting Started"
+        content: "Docker is a platform for developing, shipping, and running applications in containers. Docker enables you to separate your applications from your infrastructure..."
+
+    TechnicalDocument:
+      summary: Technical documentation
+      value:
+        url: "https://react.dev/learn"
+        title: "React Documentation"
+        content: "React is a JavaScript library for building user interfaces. It lets you compose complex UIs from small and isolated pieces of code called components..."
+
+    IngestSuccess:
+      summary: Document ingested successfully
+      value:
+        status: success
+        point_id: "550e8400-e29b-41d4-a716-446655440000"
+
+    ValidationError:
+      summary: Input validation failed
+      value:
+        status: error
+        message: "Invalid URL format: not-a-url"
+        error_code: "INVALID_URL"
+        timestamp: "2026-03-17T12:00:00Z"
+
+    ProcessingError:
+      summary: Document processing failed
+      value:
+        status: error
+        message: "Failed to generate embedding: model error"
+        error_code: "MODEL_ERROR"
+        timestamp: "2026-03-17T12:00:00Z"
+
+    SearchResults:
+      summary: Search with results
+      value:
+        query: "how to install docker"
+        limit: 5
+        collection: "knowledge_base"
+        latency_ms: 45
+        results:
+          - score: 0.95
+            title: "Docker Installation Guide"
+            url: "https://docs.docker.com/get-started/"
+            content: "Docker is a platform for developing, shipping, and running applications in containers..."
+          - score: 0.87
+            title: "Container Basics"
+            url: "https://docs.docker.com/get-started/overview/"
+            content: "Containers are lightweight, standalone packages that include everything..."
+
+    NoResults:
+      summary: Search with no results
+      value:
+        query: "nonexistent topic"
+        limit: 3
+        collection: "knowledge_base"
+        latency_ms: 25
+        results: []
+
+    InvalidQuery:
+      summary: Invalid search query
+      value:
+        status: error
+        message: "Query cannot be empty"
+        error_code: "EMPTY_QUERY"
+        timestamp: "2026-03-17T12:00:00Z"
+
+    SearchError:
+      summary: Search processing error
+      value:
+        status: error
+        message: "Failed to connect to vector database"
+        error_code: "DATABASE_ERROR"
+        timestamp: "2026-03-17T12:00:00Z"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication (future implementation)
+
+security:
+  - ApiKeyAuth: []  # Optional, for future implementation
+
+tags:
+  - name: Health
+    description: Service health monitoring endpoints
+  - name: Documents
+    description: Document ingestion and management
+  - name: Search
+    description: Semantic search functionality

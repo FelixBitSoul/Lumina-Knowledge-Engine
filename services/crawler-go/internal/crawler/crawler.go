@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gocolly/colly/v2"
@@ -31,12 +32,14 @@ func New(task config.Task, brain *brainclient.Client, logger func(format string,
 }
 
 func (c *Crawler) Run() error {
+	var retryWg sync.WaitGroup
+
 	collector := colly.NewCollector(
 		colly.Async(true),
 		colly.AllowedDomains(c.task.AllowedDomains...),
-		// Colly depth starts at 1 for seeds. Our config uses depth 0 for seeds,
-		// so we map config max_depth N to colly.MaxDepth(N+1).
-		colly.MaxDepth(c.task.MaxDepth+1),
+		// Colly depth starts at 1 for seeds. Our config uses depth 1 for seeds,
+		// so we map config max_depth N to colly.MaxDepth(N).
+		colly.MaxDepth(c.task.MaxDepth),
 	)
 
 	// User agent
@@ -88,8 +91,11 @@ func (c *Crawler) Run() error {
 				c.task.Name, r.URL.String(), attempt, c.task.Retry.MaxAttempts, reason)
 		}
 
+		// Track retry goroutine with WaitGroup
+		retryWg.Add(1)
 		// Re-request with the same context and depth; Colly will keep depth.
 		time.AfterFunc(backoff, func() {
+			defer retryWg.Done()
 			// We intentionally drop original request headers here; User-Agent and
 			// other defaults are configured on the Collector itself.
 			_ = collector.Request(r.Method, r.URL.String(), r.Body, ctx, nil)
@@ -155,10 +161,14 @@ func (c *Crawler) Run() error {
 			continue
 		}
 		// Seed depth will be 1 in Colly (mapped from config depth 0).
-		_ = collector.Visit(u.String())
+		if err := collector.Visit(u.String()); err != nil {
+			c.logger("[Task:%s] [VisitError] %s: %v", c.task.Name, u.String(), err)
+		}
 	}
 
 	collector.Wait()
+	// Wait for all scheduled retries to complete
+	retryWg.Wait()
 	return nil
 }
 
@@ -170,7 +180,9 @@ func (c *Crawler) tryVisit(parentRequest *colly.Request, base *url.URL, raw stri
 
 	normalized := normalizeURL(u.String())
 	// Colly handles allowed domains, max depth, and URL revisit prevention.
-	_ = parentRequest.Visit(normalized)
+	if err := parentRequest.Visit(normalized); err != nil {
+		c.logger("[Task:%s] [VisitError] %s: %v", c.task.Name, normalized, err)
+	}
 }
 
 func normalizeURL(raw string) string {
@@ -196,8 +208,8 @@ func ValidateTask(t config.Task) error {
 	if t.Concurrency <= 0 {
 		return fmt.Errorf("task %q has invalid concurrency", t.Name)
 	}
-	if t.MaxDepth < 0 {
-		return fmt.Errorf("task %q has invalid max_depth", t.Name)
+	if t.MaxDepth < 1 {
+		return fmt.Errorf("task %q has invalid max_depth (must be >= 1)", t.Name)
 	}
 	return nil
 }

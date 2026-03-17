@@ -19,10 +19,10 @@ go run ./cmd/crawler
 
 Environment variables:
 
-- **`CRAWLER_CONFIG`**: Path to the YAML config file (defaults to `config.yaml` in this folder)
+- **`CRAWLER_CONFIG`**: Path to the YAML config file (defaults to `crawler-config.yaml` in this folder)
 - **`BRAIN_INGEST_URL`**: Brain API ingest endpoint (defaults to `http://localhost:8000/ingest`)
 
-### Configuration (`config.yaml`)
+### Configuration (`crawler-config.yaml`)
 
 Top-level:
 
@@ -33,8 +33,8 @@ Task fields:
 - **`name`**: task name (for logs)
 - **`seeds`**: list of seed URLs
 - **`max_depth`**: depth relative to seeds
-  - `0` = only seeds
-  - `1` = seeds + links on seed pages
+  - `1` = only seeds
+  - `2` = seeds + links on seed pages
 - **`allowed_domains`**: domain allow-list (enforced by Colly)
 - **`concurrency`**: max concurrent requests for this task
 - **`rate_limit.requests_per_minute`**: approximate request rate cap
