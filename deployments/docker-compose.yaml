@@ -94,14 +94,14 @@ services:
       context: ../services/portal-next
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://localhost:${HOST_BRAIN_PORT}
+        - NEXT_PUBLIC_API_URL=http://localhost:${HOST_BRAIN_API_PORT}
         - NODE_ENV=production
     container_name: lumina-portal
     hostname: portal
     ports:
       - "${HOST_PORTAL_PORT}:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:${HOST_BRAIN_PORT}
+      - NEXT_PUBLIC_API_URL=http://localhost:${HOST_BRAIN_API_PORT}
       - NODE_ENV=production
       - PORT=3000
     networks:
