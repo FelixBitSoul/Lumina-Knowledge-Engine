@@ -27,11 +27,12 @@ app.add_middleware(
     allow_headers=["*"],             # Allows all headers
 )
 
-MODEL_NAME = "all-MiniLM-L6-v2"
-
 # 1. Initialize Local Embedding Model
 # This will download a small model (~80MB) on first run
-model = SentenceTransformer(MODEL_NAME)
+MODEL_NAME = os.getenv("MODEL_NAME", "all-MiniLM-L6-v2")
+model_cache_dir = os.getenv("MODEL_CACHE_DIR", "/app/models")
+model = SentenceTransformer(MODEL_NAME, cache_folder=model_cache_dir)
+print(f"Model loaded: {MODEL_NAME}")
 
 # 2. Initialize Qdrant Client
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")

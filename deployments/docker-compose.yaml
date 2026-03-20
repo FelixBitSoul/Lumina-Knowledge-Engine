@@ -42,13 +42,6 @@ services:
       - QDRANT__LOG_LEVEL=INFO
     networks:
       - lumina-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
   # ===========================================================================
   # Brain API Service
@@ -77,8 +70,7 @@ services:
       - lumina-network
     restart: unless-stopped
     depends_on:
-      qdrant:
-        condition: service_healthy
+      - qdrant
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -108,8 +100,7 @@ services:
       - lumina-network
     restart: unless-stopped
     depends_on:
-      brain-api:
-        condition: service_healthy
+      - brain-api
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
       interval: 30s
@@ -136,8 +127,7 @@ services:
     networks:
       - lumina-network
     depends_on:
-      brain-api:
-        condition: service_healthy
+      - brain-api
     profiles:
       - crawler
     command: ["./crawler"]

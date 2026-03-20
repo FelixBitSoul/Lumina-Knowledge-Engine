@@ -1,5 +1,5 @@
 # Portal Next.js Dockerfile
-# Next.js 15 frontend with static export
+# Next.js 16 frontend
 
 # Build stage
 FROM node:20-alpine AS builder
@@ -30,9 +30,10 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 # Copy necessary files from builder
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
 
 # Expose port
 EXPOSE 3000
@@ -42,4 +43,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:3000 || exit 1
 
 # Run the application
-CMD ["node", "server.js"]
+CMD ["npm", "start"]

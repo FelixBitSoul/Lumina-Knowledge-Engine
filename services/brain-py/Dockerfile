@@ -8,11 +8,18 @@ WORKDIR /app
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Install uv
+# RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# COPY pyproject.toml .
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies with uv using pyproject.toml (including Python version)
+RUN uv sync --frozen --no-install-project
 
 # Production stage
 FROM python:3.11-slim
@@ -24,11 +31,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed packages from builder
-COPY --from=builder /root/.local /root/.local
+# Copy venv from builder
+COPY --from=builder /app/.venv /app/.venv
 
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
+# Make sure scripts in venv are usable
+ENV PATH=/app/.venv/bin:$PATH
+# Set HF_ENDPOINT environment variable
+ENV HF_ENDPOINT="https://hf-mirror.com"
 
 # Create directories
 RUN mkdir -p /app/models /app/logs
@@ -44,4 +53,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
+# CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 CMD ["python", "main.py"]
