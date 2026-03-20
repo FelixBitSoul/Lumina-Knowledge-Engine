@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Cpu } from 'lucide-react';
+import { Sun, Moon, Cpu, MessageSquare, Search } from 'lucide-react';
 import CollectionList from '../components/CollectionList';
 import SearchBar from '../components/SearchBar';
 import SearchResults from '../components/SearchResults';
+import ChatComponent from '../components/Chat/ChatComponent';
 import { useSearchStore } from '../store/searchStore';
 import { useSearch } from '../services/api';
 
@@ -29,7 +30,8 @@ interface SearchResult {
 export default function Home() {
   const { theme, setTheme } = useTheme();
   const { query, selectedCollection, setQuery, setSelectedCollection } = useSearchStore();
-  
+  const [activeTab, setActiveTab] = useState<'search' | 'chat'>('search');
+
   // Use React Query for search
   const { data, isLoading, error } = useSearch(query, selectedCollection);
   const results = data?.results || [];
@@ -57,7 +59,7 @@ export default function Home() {
               LUMINA
             </span>
           </div>
-          
+
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="p-2 rounded-full bg-white dark:bg-[#161B22] border border-slate-200 dark:border-slate-800 hover:shadow-lg transition-all active:scale-90"
@@ -96,19 +98,47 @@ export default function Home() {
 
           {/* Right Content - Search Bar and Results */}
           <div className="lg:col-span-3">
-            {/* Search Bar */}
-            <div className="bg-white dark:bg-[#161B22] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mb-8">
-              <SearchBar onSearch={handleSearch} loading={isLoading} />
-            </div>
+            {/* Tab Navigation */}
+            <div className="bg-white dark:bg-[#161B22] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mb-8 overflow-hidden">
+              <div className="flex border-b border-slate-200 dark:border-slate-800">
+                <button
+                  onClick={() => setActiveTab('search')}
+                  className={`flex-1 py-4 px-6 flex items-center justify-center gap-2 ${activeTab === 'search' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                >
+                  <Search size={18} />
+                  <span className="font-medium">Search</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('chat')}
+                  className={`flex-1 py-4 px-6 flex items-center justify-center gap-2 ${activeTab === 'chat' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                >
+                  <MessageSquare size={18} />
+                  <span className="font-medium">Chat</span>
+                </button>
+              </div>
 
-            {/* Search Results */}
-            <div className="bg-white dark:bg-[#161B22] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <SearchResults
-                results={results}
-                error={error?.message || null}
-                loading={isLoading}
-                query={query}
-              />
+              {/* Tab Content */}
+              <div className="p-6">
+                {activeTab === 'search' ? (
+                  <>
+                    {/* Search Bar */}
+                    <div className="mb-8">
+                      <SearchBar onSearch={handleSearch} loading={isLoading} />
+                    </div>
+
+                    {/* Search Results */}
+                    <SearchResults
+                      results={results}
+                      error={error?.message || null}
+                      loading={isLoading}
+                      query={query}
+                    />
+                  </>
+                ) : (
+                  /* Chat Component */
+                  <ChatComponent />
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -26,7 +26,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, loading }) => {
         </div>
         <Input
           type="text"
-          placeholder="Ask a technical question..."
+          placeholder="Search documents..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="pl-9"
@@ -38,7 +38,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, loading }) => {
         size="lg"
         disabled={loading}
       >
-        {loading ? 'Searching...' : 'Execute'}
+        {loading ? 'Searching...' : 'Search'}
       </Button>
     </form>
   );
