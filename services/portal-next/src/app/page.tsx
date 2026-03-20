@@ -13,11 +13,21 @@ interface SearchResult {
   url: string;
   content: string;
   score: number;
+  collection?: string;
 }
+
+// Available collections
+const collections = [
+  { value: "all", label: "All Collections" },
+  { value: "core-docs", label: "Core Docs" },
+  { value: "web-frontends", label: "Web Frontends" },
+  { value: "backend-apis", label: "Backend APIs" }
+];
 
 export default function Home() {
   const { theme, setTheme } = useTheme();
   const [query, setQuery] = useState("");
+  const [selectedCollection, setSelectedCollection] = useState("all");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +47,14 @@ export default function Home() {
     setError(null);
 
     try {
+      // Build search URL with collection parameter
+      let searchUrl = `http://localhost:8000/search?query=${encodeURIComponent(query)}`;
+      if (selectedCollection !== "all") {
+        searchUrl += `&collection=${encodeURIComponent(selectedCollection)}`;
+      }
+
       // Connect to the Python FastAPI search endpoint
-      const response = await fetch(
-        `http://localhost:8000/search?query=${encodeURIComponent(query)}`
-      );
+      const response = await fetch(searchUrl);
 
       if (!response.ok) throw new Error("Backend service unavailable");
 
@@ -94,11 +108,22 @@ export default function Home() {
           </p>
         </header>
 
-        {/* Search Interface */}
+        {/* Search Interface with Collection Selector */}
         <div className="relative group mb-16">
           <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-          <div className="relative flex gap-3 bg-white dark:bg-[#161B22] p-3 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl">
-            <div className="pl-4 flex items-center text-slate-400">
+          <div className="relative flex gap-0 bg-white dark:bg-[#161B22] p-0 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl">
+            <select
+              value={selectedCollection}
+              onChange={(e) => setSelectedCollection(e.target.value)}
+              className="bg-white dark:bg-[#161B22] border-r border-slate-200 dark:border-slate-800 rounded-l-3xl px-6 py-4 text-slate-900 dark:text-white text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {collections.map((collection) => (
+                <option key={collection.value} value={collection.value}>
+                  {collection.label}
+                </option>
+              ))}
+            </select>
+            <div className="flex items-center text-slate-400 px-4">
               <Search size={22} />
             </div>
             <input
@@ -112,7 +137,7 @@ export default function Home() {
             <button
               onClick={handleSearch}
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-10 rounded-2xl font-bold transition-all shadow-lg active:scale-95 disabled:opacity-50"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-r-3xl font-bold transition-all shadow-lg active:scale-95 disabled:opacity-50"
             >
               {loading ? "Searching..." : "Execute"}
             </button>
@@ -135,8 +160,15 @@ export default function Home() {
                 <h3 className="text-2xl font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {res.title}
                 </h3>
-                <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-full border border-blue-100 dark:border-blue-500/20 text-xs font-mono font-bold">
-                  SCORE: {(res.score * 100).toFixed(1)}%
+                <div className="flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-full border border-blue-100 dark:border-blue-500/20 text-xs font-mono font-bold">
+                    SCORE: {(res.score * 100).toFixed(1)}%
+                  </div>
+                  {res.collection && (
+                    <div className="flex items-center gap-2 bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 px-4 py-1.5 rounded-full border border-green-100 dark:border-green-500/20 text-xs font-mono font-bold">
+                      COLLECTION: {res.collection}
+                    </div>
+                  )}
                 </div>
               </div>
               
