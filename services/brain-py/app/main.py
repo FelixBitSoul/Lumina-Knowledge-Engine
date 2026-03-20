@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api.router import api_router
 from config.settings import settings
 
+print(f"CORS Origins: {settings.cors.origins}")
+
 app = FastAPI(title="Lumina Brain - Vector Service")
 
 # --- CORS Configuration ---

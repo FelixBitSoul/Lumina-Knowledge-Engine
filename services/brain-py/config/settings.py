@@ -7,6 +7,11 @@ class APISettings(BaseSettings):
     """API configuration settings"""
     host: str = "0.0.0.0"
     port: int = 8000
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "allow"
 
 
 class CORSSettings(BaseSettings):
@@ -15,12 +20,29 @@ class CORSSettings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "allow"
+        
+        @classmethod
+        def parse_env_var(cls, field_name, raw_val):
+            if field_name == "origins" and isinstance(raw_val, str):
+                # Split comma-separated string into list
+                return [origin.strip() for origin in raw_val.split(",")]
+            return raw_val
 
 
 class ModelSettings(BaseSettings):
     """Model configuration settings"""
     name: str = "all-MiniLM-L6-v2"
     cache_dir: str = "/app/models"
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "allow"
 
 
 class QdrantSettings(BaseSettings):
@@ -28,11 +50,21 @@ class QdrantSettings(BaseSettings):
     host: str = "localhost"
     port: int = 6333
     collection: str = "knowledge_base"
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "allow"
 
 
 class LogSettings(BaseSettings):
     """Log configuration settings"""
     level: str = "info"
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "allow"
 
 
 class Settings(BaseSettings):
@@ -47,6 +79,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "allow"
 
 
 def get_settings() -> Settings:

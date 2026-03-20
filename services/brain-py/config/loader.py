@@ -1,6 +1,10 @@
 import os
 import yaml
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+# Load .env file if it exists
+load_dotenv()
 
 
 def load_config() -> Dict[str, Any]:
