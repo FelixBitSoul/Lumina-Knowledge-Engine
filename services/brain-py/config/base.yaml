@@ -1,0 +1,27 @@
+# Base configuration for Lumina Brain API
+
+# API settings
+api:
+  host: "0.0.0.0"
+  port: 8000
+
+# CORS settings
+cors:
+  origins:
+    - "http://localhost:3000"
+    - "http://127.0.0.1:3000"
+
+# Model settings
+model:
+  name: "all-MiniLM-L6-v2"
+  cache_dir: "/app/models"
+
+# Qdrant settings
+qdrant:
+  host: "localhost"
+  port: 6333
+  collection: "knowledge_base"
+
+# Log settings
+log:
+  level: "info"

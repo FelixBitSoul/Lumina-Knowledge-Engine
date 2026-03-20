@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# COPY pyproject.toml .
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies with uv using pyproject.toml (including Python version)
@@ -43,7 +42,9 @@ ENV HF_ENDPOINT="https://hf-mirror.com"
 RUN mkdir -p /app/models /app/logs
 
 # Copy application code
-COPY main.py .
+COPY app ./app
+COPY config ./config
+COPY .env .
 
 # Expose port
 EXPOSE 8000
@@ -53,5 +54,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
-# CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-CMD ["python", "main.py"]
+# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "app.main"]
