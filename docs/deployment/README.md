@@ -32,7 +32,7 @@ Cloud platform deployment options and configurations.
 
 ### Option 1: Docker Compose (Recommended for Testing)
 ```bash
-git clone https://github.com/your-org/lumina-knowledge-engine.git
+git clone https://github.com/FelixBitSoul/lumina-knowledge-engine.git
 cd lumina-knowledge-engine
 docker-compose -f deployments/docker-compose.yaml up -d
 ```
@@ -68,34 +68,34 @@ graph TB
     subgraph "Load Balancer"
         LB[Application Load Balancer]
     end
-    
+
     subgraph "Application Layer"
         PORTAL[Portal Frontend<br/>Next.js]
         BRAIN[Brain API<br/>Python FastAPI]
         CRAWLER[Crawler Service<br/>Go]
     end
-    
+
     subgraph "Data Layer"
         QDRANT[Qdrant Vector DB<br/>Docker Container]
         REDIS[Redis Cache<br/>Optional]
     end
-    
+
     subgraph "Infrastructure"
         DOCKER[Docker Host<br/>EC2/VM]
         K8S[Kubernetes Cluster<br/>ECS/GKE/AKS]
     end
-    
+
     LB --> PORTAL
     LB --> BRAIN
     CRAWLER --> BRAIN
     BRAIN --> QDRANT
     BRAIN --> REDIS
-    
+
     DOCKER --> QDRANT
     K8S --> PORTAL
     K8S --> BRAIN
     K8S --> CRAWLER
-    
+
     style PORTAL fill:#e3f2fd
     style BRAIN fill:#e8f5e8
     style QDRANT fill:#fff3e0
@@ -284,7 +284,7 @@ curl http://localhost:6333/health  # Qdrant
 - [Monitoring Stack](https://prometheus.io/)
 
 ### Community Support
-- [GitHub Issues](https://github.com/your-org/lumina-knowledge-engine/issues)
+- [GitHub Issues](https://github.com/FelixBitSoul/lumina-knowledge-engine/issues)
 - [Discord Community](https://discord.gg/lumina)
 - [Stack Overflow](https://stackoverflow.com/questions/tagged/lumina)
 

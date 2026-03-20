@@ -18,7 +18,7 @@ version: '3.8'
 #   docker-compose logs -f        # Follow logs
 #   docker-compose down           # Stop all services
 #
-# Documentation: https://github.com/your-org/lumina/docs/deployment/
+# Documentation: https://github.com/FelixBitSoul/lumina/docs/deployment/
 # =============================================================================
 
 services:

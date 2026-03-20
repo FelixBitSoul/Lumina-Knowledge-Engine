@@ -116,11 +116,11 @@ We maintain separate style guides for each language:
 - **Go**: [GO_STYLE_GUIDE.md](GO_STYLE_GUIDE.md)
   - Formatting: `gofmt`, `goimports`
   - Linting: `golangci-lint`
-  
+
 - **Python**: [PYTHON_STYLE_GUIDE.md](PYTHON_STYLE_GUIDE.md)
   - Formatting: `black`, `isort`
   - Linting: `flake8`, `mypy`
-  
+
 - **TypeScript/JavaScript**: [TYPESCRIPT_STYLE_GUIDE.md](TYPESCRIPT_STYLE_GUIDE.md)
   - Formatting: `prettier`
   - Linting: `eslint`
@@ -392,8 +392,8 @@ docker-compose down
 ### Getting Help
 
 - **Documentation**: Check [docs/](docs/) directory
-- **Issues**: Search [existing issues](https://github.com/your-org/lumina-knowledge-engine/issues)
-- **Discussions**: Use [GitHub Discussions](https://github.com/your-org/lumina-knowledge-engine/discussions)
+- **Issues**: Search [existing issues](https://github.com/FelixBitSoul/lumina-knowledge-engine/issues)
+- **Discussions**: Use [GitHub Discussions](https://github.com/FelixBitSoul/lumina-knowledge-engine/discussions)
 
 ### Reporting Bugs
 

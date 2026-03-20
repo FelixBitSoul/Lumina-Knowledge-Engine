@@ -24,6 +24,17 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 
 ---
 
+## 📸 Project Screenshots
+
+1. **Search Interface**
+   ![Search Interface](https://github.com/user-attachments/assets/601017ad-95d3-449b-9869-ad02c40b17d7)
+   ![Sidebar Interface](https://github.com/user-attachments/assets/d5dd3be5-95d7-4012-ad33-92eb65816f1b)
+
+2. **Chat Interface**
+   ![Chat Interface](https://github.com/user-attachments/assets/2c150b17-a56e-41da-ade4-8b9155b3bedc)
+
+---
+
 ## 🏗 System Architecture
 
 ```
@@ -67,7 +78,7 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/lumina-knowledge-engine.git
+git clone https://github.com/FelixBitSoul/lumina-knowledge-engine.git
 cd lumina-knowledge-engine/deployments
 
 # Start all services
@@ -326,9 +337,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-org/lumina-knowledge-engine/issues)
+- **Issues**: [GitHub Issues](https://github.com/FelixBitSoul/lumina-knowledge-engine/issues)
 - **Documentation**: [Full Documentation](docs/)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/lumina-knowledge-engine/discussions)
+- **Discussions**: [GitHub Discussions](https://github.com/FelixBitSoul/lumina-knowledge-engine/discussions)
 
 ---
 

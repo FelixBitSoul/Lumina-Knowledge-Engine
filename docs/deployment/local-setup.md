@@ -67,7 +67,7 @@ git --version
 
 ### Step 1: Clone Repository
 ```bash
-git clone https://github.com/your-org/lumina-knowledge-engine.git
+git clone https://github.com/FelixBitSoul/lumina-knowledge-engine.git
 cd lumina-knowledge-engine
 ```
 
@@ -212,10 +212,10 @@ tasks:
    ```bash
    # Start Qdrant (if not running)
    docker-compose -f deployments/docker-compose.yaml up -d qdrant
-   
+
    # Start Brain API
    cd services/brain-py && source venv/bin/activate && python main.py
-   
+
    # Start Portal (in another terminal)
    cd services/portal-next && npm run dev
    ```

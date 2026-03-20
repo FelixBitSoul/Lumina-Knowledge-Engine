@@ -33,7 +33,7 @@ docker run hello-world
 ### Option 1: Using Docker Compose (Recommended)
 ```bash
 # Clone repository
-git clone https://github.com/your-org/lumina-knowledge-engine.git
+git clone https://github.com/FelixBitSoul/lumina-knowledge-engine.git
 cd lumina-knowledge-engine
 
 # Navigate to deployments directory
