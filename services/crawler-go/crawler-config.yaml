@@ -11,6 +11,7 @@ tasks:
       - nextjs.org
     content_selector: article
     user_agent: LuminaCrawler/0.1 (+https://example.com/bot-info)
+    collection: core-docs
     rate_limit:
       requests_per_minute: 60
 
@@ -28,6 +29,7 @@ tasks:
       - typescriptlang.org
     content_selector: main
     user_agent: LuminaCrawler/0.1 (+https://example.com/bot-info)
+    collection: web-frontends
     rate_limit:
       requests_per_minute: 60
 
@@ -43,6 +45,7 @@ tasks:
       - docs.docker.com
     content_selector: main
     user_agent: LuminaCrawler/0.1 (+https://example.com/bot-info)
+    collection: backend-apis
     rate_limit:
       requests_per_minute: 60
 

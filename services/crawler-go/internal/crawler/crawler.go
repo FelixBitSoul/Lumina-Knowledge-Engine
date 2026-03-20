@@ -142,7 +142,7 @@ func (c *Crawler) Run() error {
 			URL:     pageURL.String(),
 			Title:   article.Title,
 			Content: article.Text,
-		}); err != nil {
+		}, c.task.Collection); err != nil {
 			c.logger("[Task:%s] [IngestError] %s: %v", c.task.Name, pageURL.String(), err)
 		}
 

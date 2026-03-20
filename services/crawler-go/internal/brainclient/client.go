@@ -34,7 +34,7 @@ func New() *Client {
 	}
 }
 
-func (c *Client) Ingest(doc Document) error {
+func (c *Client) Ingest(doc Document, collection string) error {
 	body, err := json.Marshal(doc)
 	if err != nil {
 		return fmt.Errorf("marshal ingest payload: %w", err)
@@ -44,7 +44,11 @@ func (c *Client) Ingest(doc Document) error {
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
 		// Build a fresh request each attempt (do not reuse bodies/readers).
-		req, err := http.NewRequest(http.MethodPost, c.ingestURL, bytes.NewReader(body))
+		requestURL := c.ingestURL
+		if collection != "" {
+			requestURL += "?collection=" + collection
+		}
+		req, err := http.NewRequest(http.MethodPost, requestURL, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("build ingest request: %w", err)
 		}

@@ -31,6 +31,7 @@ type Task struct {
 	AllowedDomains        []string  `yaml:"allowed_domains"`
 	ContentSelector       string    `yaml:"content_selector"`
 	UserAgent             string    `yaml:"user_agent"`
+	Collection            string    `yaml:"collection"`
 	RateLimit             RateLimit `yaml:"rate_limit"`
 	Retry                 Retry     `yaml:"retry"`
 }
