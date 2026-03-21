@@ -1,4 +1,4 @@
-module github.com/FelixBitSoul/lumina/crawler
+module github.com/FelixBitSoul/lumina-knowledge-engine/services/crawler-go
 
 go 1.24.0
 

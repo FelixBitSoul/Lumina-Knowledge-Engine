@@ -9,9 +9,9 @@ import (
 
 	"github.com/gocolly/colly/v2"
 
-	"github.com/FelixBitSoul/lumina/crawler/internal/brainclient"
-	"github.com/FelixBitSoul/lumina/crawler/internal/config"
-	"github.com/FelixBitSoul/lumina/crawler/internal/extract"
+	"github.com/FelixBitSoul/lumina-knowledge-engine/services/crawler-go/internal/brainclient"
+	"github.com/FelixBitSoul/lumina-knowledge-engine/services/crawler-go/internal/config"
+	"github.com/FelixBitSoul/lumina-knowledge-engine/services/crawler-go/internal/extract"
 )
 
 type Crawler struct {

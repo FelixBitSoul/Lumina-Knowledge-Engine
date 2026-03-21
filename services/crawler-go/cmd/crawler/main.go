@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/FelixBitSoul/lumina/crawler/internal/brainclient"
-	"github.com/FelixBitSoul/lumina/crawler/internal/config"
-	"github.com/FelixBitSoul/lumina/crawler/internal/crawler"
+	"github.com/FelixBitSoul/lumina-knowledge-engine/services/crawler-go/internal/brainclient"
+	"github.com/FelixBitSoul/lumina-knowledge-engine/services/crawler-go/internal/config"
+	"github.com/FelixBitSoul/lumina-knowledge-engine/services/crawler-go/internal/crawler"
 )
 
 func main() {
