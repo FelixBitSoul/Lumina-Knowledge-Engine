@@ -80,6 +80,8 @@ A comprehensive overview of the technology choices, architecture, and developmen
 | **Framework** | FastAPI | 0.104.0+ | High-performance API framework |
 | **Server** | Uvicorn | 0.24.0+ | ASGI server |
 | **ML/AI** | sentence-transformers | 2.2.0+ | Text embedding models |
+| **Reranking** | Cross-Encoder | latest | Relevance reranking |
+| **LLM Integration** | OpenAI API | latest | Query rewriting |
 | **Vector DB Client** | qdrant-client | 1.6.0+ | Qdrant integration |
 | **Data Validation** | Pydantic | 2.5.0+ | Request/response validation |
 | **Environment** | python-dotenv | 1.0.0+ | Configuration management |
@@ -91,10 +93,19 @@ A comprehensive overview of the technology choices, architecture, and developmen
 - `qdrant-client` - Vector database client
 - `pydantic` - Data validation and settings
 - `numpy` - Numerical operations
+- `openai` - OpenAI API client
 
-**Embedding Model:**
-- **Primary**: `all-MiniLM-L6-v2` (384 dimensions)
-- **Alternatives**: `all-mpnet-base-v2`, `paraphrase-multilingual-MiniLM-L12-v2`
+**Models:**
+
+| Type | Model | Dimensions | Purpose |
+|------|-------|------------|---------|
+| **Embedding** | `all-MiniLM-L6-v2` | 384 | Semantic embeddings |
+| **Reranking** | `cross-encoder/ms-marco-MiniLM-L-12-v2` | - | Relevance optimization |
+| **LLM** | `gpt-3.5-turbo` (or custom) | - | Query rewriting |
+
+**Alternative Models:**
+- **Embedding**: `all-mpnet-base-v2`, `paraphrase-multilingual-MiniLM-L12-v2`
+- **Reranking**: `cross-encoder/ms-marco-MiniLM-L-6-v2`, `cross-encoder/ms-marco-roberta-base-v2`
 
 ### 3. Portal Frontend (`services/portal-next`)
 

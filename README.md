@@ -13,9 +13,13 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 
 ## ✨ Features
 
-- **🔍 Semantic Search**: AI-powered vector similarity search using sentence transformers
+- **🔍 Semantic Search**: AI-powered vector similarity search with relevance reranking
+- **💬 Conversational AI**: Context-aware chat interface with query rewriting
 - **🕷️ Web Crawler**: High-performance Go-based crawler with configurable depth and rate limiting
 - **🧠 Vector Embeddings**: All-MiniLM-L6-v2 model for 384-dimensional semantic embeddings
+- **🎯 Query Rewriting**: LLM-based context processing for multi-turn conversations
+- **📊 Reranking**: Cross-Encoder based relevance optimization
+- **🔄 Multi-Collection Search**: Search across multiple vector collections
 - **⚡ High Performance**: Async processing, concurrent crawling, and optimized vector storage
 - **🎨 Modern UI**: Next.js 15 frontend with Tailwind CSS and dark/light theme support
 - **🐳 Easy Deployment**: One-command Docker Compose deployment
@@ -64,11 +68,12 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 ## 🛠 Tech Stack
 
 - **🐭 Backend**: Go (Colly crawler), Python (FastAPI, Qdrant-Client, sentence-transformers)
-- **🤖 AI/ML**: HuggingFace Transformers, all-MiniLM-L6-v2 embeddings
+- **🤖 AI/ML**: HuggingFace Transformers, all-MiniLM-L6-v2 embeddings, Cross-Encoder reranking, OpenAI API
 - **⚛️ Frontend**: Next.js 15, React 19, Tailwind CSS v4, Lucide Icons
 - **💾 Database**: Qdrant Vector Database (384-dimensional vectors)
 - **🐳 Infrastructure**: Docker, Docker Compose
 - **📊 Monitoring**: Health checks, structured logging
+- **🔧 AI Services**: Query rewriting, relevance reranking, conversational AI
 
 ---
 

@@ -169,7 +169,7 @@ curl -X POST http://localhost:8000/ingest \
 
 **Endpoint**: `GET /search`
 
-**Purpose**: Perform semantic similarity search across stored documents
+**Purpose**: Perform semantic similarity search with relevance reranking
 
 **Request**:
 ```http
@@ -182,12 +182,14 @@ Host: localhost:8000
 interface SearchParams {
   query: string;    // Search query (URL encoded, 1-500 chars)
   limit?: number;   // Maximum results (1-20, default: 3)
+  collection?: string; // Vector collection name (optional)
 }
 ```
 
 **Parameter Validation**:
 - `query`: Required, 1-500 characters after URL decoding
 - `limit`: Optional, integer between 1-20
+- `collection`: Optional, valid collection name
 
 **Response**:
 ```json
@@ -195,16 +197,20 @@ interface SearchParams {
   "query": "how to install docker",
   "limit": 5,
   "collection": "knowledge_base",
-  "latency_ms": 45,
+  "latency_ms": 100,
   "results": [
     {
-      "score": 0.95,
+      "score": 0.98,
+      "vector_score": 0.92,
+      "rerank_score": 0.98,
       "title": "Docker Installation Guide",
       "url": "https://docs.docker.com/get-started/",
       "content": "Docker is a platform for developing, shipping, and running applications..."
     },
     {
-      "score": 0.87,
+      "score": 0.95,
+      "vector_score": 0.87,
+      "rerank_score": 0.95,
       "title": "Container Basics",
       "url": "https://docs.docker.com/get-started/overview/",
       "content": "Containers are lightweight, standalone packages that include everything..."
@@ -224,10 +230,13 @@ interface SearchResponse {
 }
 
 interface SearchResult {
-  score: number;     // Similarity score (0.0-1.0)
-  title: string;     // Document title
-  url: string;       // Source URL
-  content: string;   // Content preview (first 200 characters)
+  score: number;         // Final relevance score (0.0-1.0)
+  vector_score: number;  // Original vector similarity score
+  rerank_score: number;  // Cross-Encoder reranking score
+  title: string;         // Document title
+  url: string;           // Source URL
+  content: string;       // Content preview
+  collection?: string;   // Collection name (if multi-collection search)
 }
 ```
 
@@ -248,6 +257,11 @@ curl -X GET "http://localhost:8000/search?query=react%20hooks"
 curl -X GET "http://localhost:8000/search?query=python%20tutorial&limit=10"
 ```
 
+**Search in Specific Collection**:
+```bash
+curl -X GET "http://localhost:8000/search?query=docker&limit=5&collection=tech_docs"
+```
+
 **Invalid Query (Empty)**:
 ```bash
 curl -X GET "http://localhost:8000/search?query="
@@ -262,6 +276,131 @@ curl -X GET "http://localhost:8000/search?query=test&limit=50"
 
 ---
 
+### 4. Chat API
+
+**Endpoint**: `POST /chat`
+
+**Purpose**: Conversational interface with context awareness
+
+**Request**:
+```http
+POST /chat HTTP/1.1
+Host: localhost:8000
+Content-Type: application/json
+
+{
+  "message": "How do I use Docker?",
+  "conversation_id": "12345",
+  "collection": "knowledge_base"
+}
+```
+
+**Request Schema**:
+```typescript
+interface ChatRequest {
+  message: string;           // User message (1-1000 chars)
+  conversation_id?: string;  // Optional conversation ID
+  collection?: string;       // Optional vector collection name
+}
+```
+
+**Parameter Validation**:
+- `message`: Required, 1-1000 characters
+- `conversation_id`: Optional, valid UUID format
+- `collection`: Optional, valid collection name
+
+**Response**:
+```json
+{
+  "id": "67890",
+  "content": "To use Docker, you first need to install it on your system. You can download the installer from the official Docker website...",
+  "conversation_id": "12345",
+  "timestamp": 1678901234
+}
+```
+
+**Response Schema**:
+```typescript
+interface ChatResponse {
+  id: string;              // Response ID
+  content: string;         // Assistant response
+  conversation_id: string; // Conversation ID
+  timestamp: number;       // Unix timestamp
+}
+```
+
+**Status Codes**:
+- `200 OK`: Chat response generated
+- `400 Bad Request`: Invalid input data
+- `500 Internal Server Error`: Processing error
+
+**Example**:
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Tell me about React hooks",
+    "collection": "tech_docs"
+  }'
+```
+
+---
+
+### 5. Streaming Chat API
+
+**Endpoint**: `POST /chat/stream`
+
+**Purpose**: Streaming conversational interface for real-time responses
+
+**Request**:
+```http
+POST /chat/stream HTTP/1.1
+Host: localhost:8000
+Content-Type: application/json
+
+{
+  "message": "Explain machine learning",
+  "collection": "ai_docs"
+}
+```
+
+**Request Schema**:
+```typescript
+interface ChatRequest {
+  message: string;           // User message (1-1000 chars)
+  conversation_id?: string;  // Optional conversation ID
+  collection?: string;       // Optional vector collection name
+}
+```
+
+**Response**:
+SSE (Server-Sent Events) stream with incremental response chunks:
+
+```
+data: {"id": "123", "content": "Machine learning is a subset of artificial intelligence that", "conversation_id": "54321", "is_finished": false}
+
+data: {"id": "124", "content": " allows systems to learn from data without being explicitly", "conversation_id": "54321", "is_finished": false}
+
+data: {"id": "125", "content": " programmed.", "conversation_id": "54321", "is_finished": true}
+```
+
+**Status Codes**:
+- `200 OK`: Streaming response started
+- `400 Bad Request`: Invalid input data
+- `500 Internal Server Error`: Processing error
+
+**Example**:
+```bash
+curl -N -X POST http://localhost:8000/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What is Docker?",
+    "collection": "tech_docs"
+  }'
+```
+
+---
+
 ## 🔧 Configuration
 
 ### Environment Variables
@@ -272,6 +411,10 @@ curl -X GET "http://localhost:8000/search?query=test&limit=50"
 | `QDRANT_PORT` | `6333` | Qdrant database port |
 | `QDRANT_COLLECTION` | `knowledge_base` | Vector collection name |
 | `MODEL_NAME` | `all-MiniLM-L6-v2` | Embedding model name |
+| `MODEL_CACHE_DIR` | `./models` | Model cache directory |
+| `OPENAI_API_KEY` | - | OpenAI API key for query rewriting |
+| `OPENAI_API_BASE` | `https://api.openai.com/v1` | Custom OpenAI API endpoint |
+| `LLM_MODEL_NAME` | `gpt-3.5-turbo` | LLM model for query rewriting |
 
 ### Model Configuration
 
