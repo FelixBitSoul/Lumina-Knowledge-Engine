@@ -9,6 +9,7 @@ import logging
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.core.llm_service import generate_response, generate_streaming_response
 from app.core.vector_service import search_relevant_documents
+from app.core.query_rewriter import query_rewriter
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -29,9 +30,18 @@ async def chat(request: ChatRequest):
         conversation_id = request.conversation_id or str(uuid.uuid4())
         logger.info(f"Generated conversation ID: {conversation_id}")
 
+        # 获取对话历史
+        chat_history = conversations.get(conversation_id, [])
+        
+        # 重写查询
+        logger.info("Rewriting query for better retrieval...")
+        rewritten_query = query_rewriter.rewrite(request.message, chat_history)
+        logger.info(f"Original query: {request.message}")
+        logger.info(f"Rewritten query: {rewritten_query}")
+        
         # 检索相关文档作为上下文
         logger.info("Searching for relevant documents...")
-        context = search_relevant_documents(request.message, request.collection)
+        context = search_relevant_documents(rewritten_query, request.collection)
         logger.info(f"Found {len(context)} relevant documents")
 
         # 生成响应
@@ -71,9 +81,18 @@ async def stream_chat(request: ChatRequest):
             conversation_id = request.conversation_id or str(uuid.uuid4())
             logger.info(f"Generated conversation ID: {conversation_id}")
 
+            # 获取对话历史
+            chat_history = conversations.get(conversation_id, [])
+            
+            # 重写查询
+            logger.info("Rewriting query for better retrieval...")
+            rewritten_query = query_rewriter.rewrite(request.message, chat_history)
+            logger.info(f"Original query: {request.message}")
+            logger.info(f"Rewritten query: {rewritten_query}")
+            
             # 检索相关文档作为上下文
             logger.info("Searching for relevant documents...")
-            context = search_relevant_documents(request.message, request.collection)
+            context = search_relevant_documents(rewritten_query, request.collection)
             logger.info(f"Found {len(context)} relevant documents")
 
             # 保存用户消息

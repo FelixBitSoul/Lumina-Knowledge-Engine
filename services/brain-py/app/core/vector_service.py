@@ -2,11 +2,15 @@ from typing import List
 from .services.embedding import embedding_service
 from .services.qdrant import qdrant_service
 from config.settings import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 def search_relevant_documents(query: str, collection: str = "all", top_k: int = 3) -> List[str]:
     """检索相关文档"""
     try:
         # Use specified collection or default from config
+        logger.info(f"Searching in collection: {collection}")
         target_collection = collection if collection != "all" else settings.qdrant.collection
 
         # Generate query vector
@@ -28,5 +32,5 @@ def search_relevant_documents(query: str, collection: str = "all", top_k: int = 
 
         return context
     except Exception as e:
-        print(f"Error searching documents: {e}")
+        logger.error(f"Error searching documents: {e}")
         return []

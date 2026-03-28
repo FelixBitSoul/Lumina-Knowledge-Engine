@@ -26,3 +26,5 @@ wheels/
 
 # Qdrant data (Vector DB storage)
 deployments/qdrant_data/
+
+.idea/
