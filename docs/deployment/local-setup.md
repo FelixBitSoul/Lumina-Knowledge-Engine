@@ -82,22 +82,13 @@ curl http://localhost:6333/health
 
 ### Step 3: Setup Brain API
 ```bash
-cd services/brain-py
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
+cd services/lumina-brain
 
 # Install dependencies
-pip install -r requirements.txt
+uv sync
 
 # Start the Brain API service
-python main.py
+uv run start
 ```
 
 ### Step 4: Setup Crawler Service
@@ -135,10 +126,10 @@ Open your browser and navigate to:
 ```
 lumina-knowledge-engine/
 ├── services/
-│   ├── brain-py/           # Python FastAPI service
-│   │   ├── main.py         # Main application
-│   │   ├── requirements.txt # Python dependencies
-│   │   └── venv/           # Virtual environment
+│   ├── lumina-brain/       # Python FastAPI service
+│   │   ├── src/            # Source code
+│   │   ├── pyproject.toml  # Project configuration
+│   │   └── .venv/          # Virtual environment
 │   ├── crawler-go/         # Go crawler service
 │   │   ├── cmd/            # Command line interface
 │   │   ├── internal/       # Internal packages
@@ -214,7 +205,7 @@ tasks:
    docker-compose -f deployments/docker-compose.yaml up -d qdrant
 
    # Start Brain API
-   cd services/brain-py && source venv/bin/activate && python main.py
+   cd services/lumina-brain && uv run start
 
    # Start Portal (in another terminal)
    cd services/portal-next && npm run dev
@@ -246,9 +237,9 @@ go fmt ./...
 go vet ./...
 
 # Python
-cd services/brain-py
-flake8 .
-black .
+cd services/lumina-brain
+flake8 src/
+black src/
 
 # JavaScript/TypeScript
 cd services/portal-next
@@ -263,7 +254,7 @@ cd services/crawler-go
 go test ./...
 
 # Python
-cd services/brain-py
+cd services/lumina-brain
 pytest
 
 # JavaScript/TypeScript
@@ -297,12 +288,10 @@ docker-compose up -d
 #### Python Virtual Environment Issues
 ```bash
 # Recreate virtual environment
-cd services/brain-py
-rm -rf venv
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
-pip install -r requirements.txt
+cd services/lumina-brain
+rm -rf .venv
+uv venv
+uv sync
 ```
 
 #### Node.js Issues
@@ -377,7 +366,7 @@ curl http://localhost:8000/health
 
 2. **Limit Vector Collection Size**:
    ```python
-   # In brain-py/main.py, add cleanup
+   # In lumina-brain/src/lumina_brain/main.py, add cleanup
    if collection_size > 1000:
        qdrant_client.delete_collection(collection_name)
        qdrant_client.create_collection(...)
@@ -410,7 +399,7 @@ docker-compose top
 make test
 
 # Service-specific tests
-cd services/brain-py && pytest
+cd services/lumina-brain && pytest
 cd services/crawler-go && go test ./...
 cd services/portal-next && npm test
 ```
@@ -466,7 +455,7 @@ docker-compose up -d --build
 // .vscode/settings.json
 {
   "go.formatTool": "goimports",
-  "python.defaultInterpreterPath": "./services/brain-py/venv/bin/python",
+  "python.defaultInterpreterPath": "./services/lumina-brain/.venv/bin/python",
   "typescript.preferences.importModuleSpecifier": "relative"
 }
 ```

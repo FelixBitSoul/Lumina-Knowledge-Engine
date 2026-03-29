@@ -14,8 +14,8 @@ The Brain API is a Python FastAPI service that provides vector embedding generat
 
 ### Start the Service
 ```bash
-cd services/brain-py
-python main.py
+cd services/lumina-brain
+uv run start
 ```
 
 ### Verify Health

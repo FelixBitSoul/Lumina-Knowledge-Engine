@@ -28,7 +28,7 @@ This document documents the key technical decisions made during the design and i
 # Service separation
 services:
   - crawler-go      # Go-based web scraping
-  - brain-py        # Python-based vector processing  
+  - lumina-brain        # Python-based vector processing  
   - portal-next     # JavaScript-based user interface
   - qdrant          # Vector database service
 ```

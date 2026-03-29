@@ -128,7 +128,7 @@ The Brain API is a vector processing service built with Python 3.11 and FastAPI,
 
 ### Application Structure
 ```
-services/brain-py/
+services/lumina-brain/
 ├── main.py                     # FastAPI application
 ├── requirements.txt            # Python dependencies
 └── venv/                       # Virtual environment

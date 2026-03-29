@@ -43,7 +43,7 @@ docker-compose -f deployments/docker-compose.yaml up -d
 docker-compose -f deployments/docker-compose.yaml up -d qdrant
 
 # Start Brain API
-cd services/brain-py && python main.py
+cd services/lumina-brain && uv run python -m lumina_brain.main
 
 # Start Crawler
 cd services/crawler-go && go run ./cmd/crawler

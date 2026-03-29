@@ -1,6 +1,6 @@
 # Python Style Guide
 
-This style guide defines coding standards and best practices for Python code in the Lumina Knowledge Engine project, specifically for the Brain API service (`services/brain-py`).
+This style guide defines coding standards and best practices for Python code in the Lumina Knowledge Engine project, specifically for the Brain API service (`services/lumina-brain`).
 
 ---
 
@@ -84,7 +84,7 @@ from .utils import normalize_text
 ```toml
 [tool.isort]
 profile = "black"
-src_paths = ["services/brain-py"]
+src_paths = ["services/lumina-brain"]
 known_first_party = ["brain"]
 sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 ```
@@ -294,7 +294,7 @@ class Config:
 ### Standard Layout
 
 ```
-services/brain-py/
+services/lumina-brain/
 ├── 📁 app/                     # Application package
 │   ├── 📄 __init__.py
 │   ├── 📄 main.py              # FastAPI application entry
@@ -944,7 +944,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "brain-py"
+name = "lumina-brain"
 version = "0.1.0"
 requires-python = ">=3.11"
 
@@ -963,7 +963,7 @@ extend-exclude = '''
 
 [tool.isort]
 profile = "black"
-src_paths = ["services/brain-py"]
+src_paths = ["services/lumina-brain"]
 
 [tool.mypy]
 python_version = "3.11"

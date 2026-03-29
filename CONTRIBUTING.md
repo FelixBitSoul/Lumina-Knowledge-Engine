@@ -300,7 +300,7 @@ Reviewers will check for:
 | Service | Minimum Coverage |
 |---------|-----------------|
 | `crawler-go` | 70% |
-| `brain-py` | 75% |
+| `lumina-brain` | 75% |
 | `portal-next` | 60% |
 
 ### Running Tests

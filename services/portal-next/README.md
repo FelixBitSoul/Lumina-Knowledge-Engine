@@ -24,7 +24,7 @@ Built with [Next.js 15](https://nextjs.org), [Tailwind CSS v4](https://tailwindc
 
 - Node.js 18+ 
 - npm, yarn, or pnpm
-- Brain API running (see [brain-py/README.md](../brain-py/README.md))
+- Brain API running (see [lumina-brain/README.md](../lumina-brain/README.md))
 
 ### Installation
 

@@ -107,9 +107,9 @@ Access the services:
 docker-compose -f deployments/docker-compose.yaml up -d qdrant
 
 # 2. Start Brain API (Python 3.11+)
-cd services/brain-py
-pip install -r requirements.txt
-python main.py
+cd services/lumina-brain
+uv sync
+uv run start
 
 # 3. Start Portal (Node.js 18+)
 cd services/portal-next
@@ -134,9 +134,9 @@ lumina-knowledge-engine/
 │   │   ├── crawler-config.yaml        # Crawler configuration
 │   │   └── README.md          # Crawler documentation
 │   │
-│   ├── 🧠 brain-py/           # Python FastAPI service
-│   │   ├── main.py            # API endpoints
-│   │   ├── requirements.txt   # Python dependencies
+│   ├── 🧠 lumina-brain/       # Python FastAPI service
+│   │   ├── src/               # Source code
+│   │   ├── pyproject.toml     # Project configuration
 │   │   └── README.md          # API documentation
 │   │
 │   └── 🌐 portal-next/        # Next.js frontend
@@ -178,7 +178,7 @@ lumina-knowledge-engine/
 ### 🔗 Quick Links
 
 - **Crawler Details**: [services/crawler-go/README.md](services/crawler-go/README.md)
-- **Brain API Details**: [services/brain-py/README.md](services/brain-py/README.md)
+- **Brain API Details**: [services/lumina-brain/README.md](services/lumina-brain/README.md)
 - **Portal Details**: [services/portal-next/README.md](services/portal-next/README.md)
 
 ---

@@ -435,7 +435,7 @@ echo "Deploying Lumina to AWS..."
 
 # Build and push Docker images
 echo "Building Docker images..."
-docker build -t lumina/brain-api:latest ./services/brain-py
+docker build -t lumina/brain-api:latest ./services/lumina-brain
 docker build -t lumina/portal:latest ./services/portal-next
 docker build -t lumina/crawler:latest ./services/crawler-go
 
@@ -591,7 +591,7 @@ gcloud redis instances create lumina-redis \
 
 # Build and deploy images
 echo "Building and deploying container images..."
-gcloud builds submit --tag gcr.io/$PROJECT_ID/brain-api ./services/brain-py
+gcloud builds submit --tag gcr.io/$PROJECT_ID/brain-api ./services/lumina-brain
 gcloud builds submit --tag gcr.io/$PROJECT_ID/portal ./services/portal-next
 gcloud builds submit --tag gcr.io/$PROJECT_ID/crawler ./services/crawler-go
 
@@ -782,7 +782,7 @@ az redis create \
 
 # Build and push images
 echo "Building and pushing images..."
-az acr build --registry $ACR_NAME --image brain-api:latest ./services/brain-py
+az acr build --registry $ACR_NAME --image brain-api:latest ./services/lumina-brain
 az acr build --registry $ACR_NAME --image portal:latest ./services/portal-next
 az acr build --registry $ACR_NAME --image crawler:latest ./services/crawler-go
 
@@ -1042,7 +1042,7 @@ jobs:
           ECR_REPOSITORY: lumina
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY/brain-api:$IMAGE_TAG ./services/brain-py
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY/brain-api:$IMAGE_TAG ./services/lumina-brain
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY/portal:$IMAGE_TAG ./services/portal-next
           docker push $ECR_REGISTRY/$ECR_REPOSITORY/brain-api:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY/portal:$IMAGE_TAG

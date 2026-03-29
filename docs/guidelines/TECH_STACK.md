@@ -72,7 +72,7 @@ A comprehensive overview of the technology choices, architecture, and developmen
 - `github.com/PuerkitoBio/goquery` - jQuery-like syntax for Go
 - `gopkg.in/yaml.v3` - YAML parsing
 
-### 2. Brain API Service (`services/brain-py`)
+### 2. Brain API Service (`services/lumina-brain`)
 
 | Component | Technology | Version | Purpose |
 |-----------|------------|---------|---------|

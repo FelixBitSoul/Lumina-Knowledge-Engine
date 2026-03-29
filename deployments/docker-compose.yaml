@@ -48,7 +48,7 @@ services:
   # ===========================================================================
   brain-api:
     build:
-      context: ../services/brain-py
+      context: ../services/lumina-brain
       dockerfile: Dockerfile
     container_name: lumina-brain-api
     hostname: brain-api

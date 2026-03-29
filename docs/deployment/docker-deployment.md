@@ -61,7 +61,7 @@ docker run -d --name qdrant \
   qdrant/qdrant:v1.7.4
 
 # Start Brain API (build from source)
-cd services/brain-py
+cd services/lumina-brain
 docker build -t lumina/brain-api:latest .
 docker run -d --name brain-api \
   -p 8000:8000 \
@@ -112,7 +112,7 @@ services:
   # Brain API Service
   brain-api:
     build:
-      context: ./services/brain-py
+      context: ./services/lumina-brain
       dockerfile: Dockerfile
     container_name: lumina-brain-api
     restart: unless-stopped
@@ -125,7 +125,7 @@ services:
       - MODEL_NAME=all-MiniLM-L6-v2
       - LOG_LEVEL=info
     volumes:
-      - ./services/brain-py/models:/app/models:ro
+      - ./services/lumina-brain/models:/app/models:ro
       - brain_models:/app/models_cache  # Persistent model cache
     networks:
       - lumina-network
@@ -214,7 +214,7 @@ networks:
 
 ### Brain API Dockerfile
 ```dockerfile
-# services/brain-py/Dockerfile
+# services/lumina-brain/Dockerfile
 FROM python:3.11-slim
 
 # Set working directory

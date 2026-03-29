@@ -1,6 +1,6 @@
 # Python virtual environment
-services/brain-py/venv/
-services/brain-py/.venv/
+services/lumina-brain/venv/
+services/lumina-brain/.venv/
 env/
 .env
 

@@ -97,7 +97,7 @@ docs/
 
 ### API Changes
 
-When modifying API endpoints in `services/brain-py/main.py`:
+When modifying API endpoints in `services/lumina-brain/src/lumina_brain/main.py`:
 
 1. Update `docs/api/brain-api.md`
 2. Update `docs/api/openapi/brain-api.yaml`
@@ -148,7 +148,7 @@ Before marking a task as complete:
 ### Scenario 1: Adding New API Endpoint
 
 ```python
-# services/brain-py/main.py
+# services/lumina-brain/src/lumina_brain/main.py
 @app.get("/stats")
 async def get_stats():
     return {"total_documents": 1000}
@@ -270,7 +270,7 @@ When writing or modifying code, follow the appropriate style guide:
 Each service has established patterns that should be followed:
 
 - **Crawler (Go)**: See [services/crawler-go/README.md](services/crawler-go/README.md)
-- **Brain API (Python/FastAPI)**: See [services/brain-py/README.md](services/brain-py/README.md)
+- **Brain API (Python/FastAPI)**: See [services/lumina-brain/README.md](services/lumina-brain/README.md)
 - **Portal (Next.js/TypeScript)**: See [services/portal-next/README.md](services/portal-next/README.md)
 
 ---
@@ -279,7 +279,7 @@ Each service has established patterns that should be followed:
 
 | If you modify... | Then update... |
 |------------------|----------------|
-| `services/brain-py/*.py` | `docs/api/brain-api.md`, `docs/api/openapi/*.yaml` |
+| `services/lumina-brain/src/lumina_brain/*.py` | `docs/api/brain-api.md`, `docs/api/openapi/*.yaml` |
 | `services/crawler-go/*.go` | `docs/api/crawler-config.md` |
 | `services/portal-next/*.tsx` | `docs/api/portal-integration.md` |
 | `deployments/*` | `docs/deployment/*.md` |
