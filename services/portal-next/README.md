@@ -123,17 +123,29 @@ User Input ──▶ Portal ──▶ Brain API ──▶ Qdrant
 ### TypeScript Types
 
 ```typescript
+interface SearchFilters {
+  title?: string;      // Filter by title
+  domain?: string;     // Filter by domain
+  start_time?: string; // Filter by start time (ISO format)
+  end_time?: string;   // Filter by end time (ISO format)
+}
+
 interface SearchResult {
   score: number;       // Relevance score (0-1)
   title: string;       // Document title
   url: string;         // Source URL
+  domain: string;      // Document domain
   content: string;      // Content preview
+  updated_at: string;   // Last update time (ISO format)
 }
 
 interface SearchResponse {
   query: string;
-  results: SearchResult[];
+  limit: number;
+  collection: string;
+  filters: SearchFilters | null;
   latency_ms: number;
+  results: SearchResult[];
 }
 ```
 
