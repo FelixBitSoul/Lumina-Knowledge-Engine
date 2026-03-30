@@ -5,7 +5,7 @@ This document provides in-depth technical documentation for each service compone
 ## 🕷️ Crawler Service (Go)
 
 ### Architecture Overview
-The Crawler Service is a high-performance web scraping engine built with Go 1.22 and the Colly framework.
+The Crawler Service is a high-performance web scraping engine built with Go 1.24 and the Colly framework.
 
 ### Package Structure
 ```
@@ -149,7 +149,11 @@ services/lumina-brain/
 ```python
 @app.get("/health")              # Service health check
 @app.post("/ingest")             # Document ingestion
+@app.post("/upload")             # Document upload (PDF/text files)
+@app.get("/collections")         # List available collections
 @app.get("/search")               # Semantic search
+@app.post("/chat")               # Conversational AI
+@app.post("/chat/stream")        # Streaming chat
 ```
 
 #### 2. Vector Embedding Pipeline

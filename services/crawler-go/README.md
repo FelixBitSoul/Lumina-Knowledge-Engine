@@ -4,9 +4,10 @@ This service crawls documentation websites and ingests cleaned text into the Pyt
 
 ### How it works
 
-- **Crawler**: Go + Colly (async, rate limiting, depth-limited traversal)
-- **Extraction**: `go-readability` for main article text (optional CSS selector override)
-- **Ingestion**: HTTP POST to Brain API `/ingest`
+- **Crawler**: Go + Colly (async, rate limiting, depth-limited traversal, automatic retries)
+- **Extraction**: `go-readability` for main article text with optional CSS selector override using goquery
+- **Ingestion**: HTTP POST to Brain API `/ingest` with automatic collection management
+- **Features**: URL normalization, duplicate prevention, configurable concurrency and rate limiting
 
 ### Run
 

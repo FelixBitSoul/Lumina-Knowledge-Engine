@@ -24,14 +24,14 @@ docker --version
 docker-compose --version
 ```
 
-#### 2. Go 1.22+
+#### 2. Go 1.24+
 Download and install Go:
 - [Official Downloads](https://golang.org/dl/)
 
 Verify installation:
 ```bash
 go version
-# Should show: go version go1.22.x linux/amd64
+# Should show: go version go1.24.x linux/amd64
 ```
 
 #### 3. Python 3.11+

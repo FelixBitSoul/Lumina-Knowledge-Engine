@@ -184,17 +184,21 @@ npm run test:coverage
 ## 📦 Dependencies
 
 ### Core
-- **next**: ^15.0.0 - React framework
-- **react**: ^19.0.0 - UI library
-- **react-dom**: ^19.0.0 - DOM rendering
+- **next**: 15.0.2 - React framework
+- **react**: 19.0.0 - UI library
+- **react-dom**: 19.0.0 - DOM rendering
+- **@tanstack/react-query**: ^5.28.9 - Data fetching
+- **zustand**: ^4.5.2 - State management
+- **shadcn**: ^4.1.0 - UI components
 
 ### Styling
-- **tailwindcss**: ^4.0.0 - Utility-first CSS
-- **lucide-react**: Latest - Icon library
+- **tailwindcss**: ^4 - Utility-first CSS
+- **lucide-react**: 0.577.0 - Icon library
+- **tailwind-merge**: ^3.5.0 - Class merging
 
 ### Development
-- **typescript**: ^5.0.0 - Type safety
-- **eslint**: ^9.0.0 - Code linting
+- **typescript**: ^5 - Type safety
+- **eslint**: ^9 - Code linting
 - **@types/react**: ^19.0.0 - React types
 
 See `package.json` for complete dependency list.
