@@ -21,7 +21,7 @@ interface SearchState {
 
 export const useSearchStore = create<SearchState>((set) => ({
   query: '',
-  selectedCollection: 'all',
+  selectedCollection: 'core-docs',
   filters: {
     title: undefined,
     domain: undefined,
@@ -45,6 +45,7 @@ export const useSearchStore = create<SearchState>((set) => ({
   setError: (error) => set({ error }),
   reset: () => set({
     query: '',
+    selectedCollection: 'core-docs',
     results: [],
     loading: false,
     error: null,

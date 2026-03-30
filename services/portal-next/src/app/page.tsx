@@ -13,7 +13,6 @@ import { SearchResultItem } from '../types';
 
 // Available collections
 const collections = [
-  { value: 'all', label: 'All Collections' },
   { value: 'core-docs', label: 'Core Docs' },
   { value: 'web-frontends', label: 'Web Frontends' },
   { value: 'backend-apis', label: 'Backend APIs' }

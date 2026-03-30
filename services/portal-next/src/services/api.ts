@@ -3,8 +3,8 @@ import { SearchFilters, SearchResponse } from '../types';
 
 export const searchAPI = {
   search: async (
-    query: string, 
-    collection: string = 'all',
+    query: string,
+    collection: string = 'core-docs',
     filters?: SearchFilters,
     limit: number = 3
   ) => {
@@ -13,11 +13,8 @@ export const searchAPI = {
       const params = new URLSearchParams();
       params.append('query', query);
       params.append('limit', limit.toString());
-      
-      if (collection !== 'all') {
-        params.append('collection', collection);
-      }
-      
+      params.append('collection', collection);
+
       // Add filter parameters
       if (filters) {
         if (filters.title) {
@@ -49,7 +46,7 @@ export const searchAPI = {
 };
 
 export const useSearch = (
-  query: string, 
+  query: string,
   collection: string = 'all',
   filters?: SearchFilters,
   limit: number = 3
