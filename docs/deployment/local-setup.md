@@ -99,6 +99,9 @@ cd services/crawler-go
 # Install Go dependencies
 go mod download
 
+# Create .env file from example
+cp .env.example .env
+
 # Run the crawler (optional - for testing)
 go run ./cmd/crawler
 ```
@@ -336,7 +339,9 @@ go version
 
 # Check configuration
 cd services/crawler-go
-go run ./cmd/crawler --config=config-test.yaml
+# Edit .env file to use config-test.yaml
+# CRAWLER_CONFIG=config-test.yaml
+go run ./cmd/crawler
 
 # Check Brain API connectivity
 curl http://localhost:8000/health

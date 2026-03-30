@@ -340,7 +340,8 @@ WORKDIR /root/
 COPY --from=builder /app/crawler .
 
 # Copy configuration
-COPY config ./config
+COPY crawler-config.yaml ./
+COPY .env.example ./.env.example
 
 # Create logs directory
 RUN mkdir -p logs
@@ -357,31 +358,47 @@ CMD ["./crawler"]
 
 ### Environment Variables
 
-Create `.env` file:
+Create `.env` file for each service:
+
+**For Crawler Service:**
 ```bash
-# .env
+# services/crawler-go/.env
+# Crawler Configuration
+CRAWLER_CONFIG=crawler-config.yaml
+
+# Brain API Configuration
+BRAIN_INGEST_URL=http://localhost:8000/ingest
+
+# Logging
+LOG_LEVEL=info
+
+# Environment
+GO_ENV=development
+```
+
+**For Brain API Service:**
+```bash
+# services/lumina-brain/.env
 # Vector Database
-QDRANT_HOST=qdrant
+QDRANT_HOST=localhost
 QDRANT_PORT=6333
 QDRANT_COLLECTION=knowledge_base
 
-# Brain API
-BRAIN_API_HOST=brain-api
-BRAIN_API_PORT=8000
+# Model Configuration
 MODEL_NAME=all-MiniLM-L6-v2
-LOG_LEVEL=info
+MODEL_CACHE_DIR=./models
 
-# Portal
+# OpenAI API (for query rewriting)
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_API_BASE=https://api.deepseek.com/v1
+LLM_MODEL_NAME=deepseek-chat
+```
+
+**For Portal Service:**
+```bash
+# services/portal-next/.env
 NEXT_PUBLIC_API_URL=http://localhost:8000
-NODE_ENV=production
-
-# Crawler
-BRAIN_INGEST_URL=http://brain-api:8000/ingest
-CRAWLER_CONFIG=/app/config/crawler-config.yaml
-
-# Redis (optional)
-REDIS_HOST=redis
-REDIS_PORT=6379
+NODE_ENV=development
 ```
 
 ### Production Configuration

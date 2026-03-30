@@ -4,8 +4,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
 )
+
+func init() {
+	// Load .env file if it exists
+	godotenv.Load()
+}
 
 // RateLimit controls how fast we crawl for a given task.
 type RateLimit struct {
