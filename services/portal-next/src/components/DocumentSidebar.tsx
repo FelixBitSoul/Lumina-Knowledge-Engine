@@ -1,21 +1,26 @@
 import React from 'react';
-import { X, ExternalLink } from 'lucide-react';
+import { X, ExternalLink, Globe, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from './ui/card';
 import { Button } from './ui/button';
+import { SearchResultItem } from '../types';
 
 interface DocumentSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  document: {
-    title: string;
-    content: string;
-    url: string;
-    collection?: string;
-  };
+  document: SearchResultItem;
 }
 
 const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ isOpen, onClose, document }) => {
   if (!isOpen) return null;
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString();
+    } catch {
+      return dateString;
+    }
+  };
 
   return (
     <>
@@ -48,19 +53,29 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ isOpen, onClose, docu
                 <CardTitle className="text-2xl font-bold">{document.title}</CardTitle>
               </CardHeader>
               <CardContent className="py-6">
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
                   {document.content}
                 </p>
+                
+                {/* Metadata */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                    <Globe className="h-4 w-4" />
+                    <span><strong>Domain:</strong> {document.domain}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                    <Clock className="h-4 w-4" />
+                    <span><strong>Updated:</strong> {formatDate(document.updated_at)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                    <span><strong>Score:</strong> {(document.score * 100).toFixed(1)}%</span>
+                  </div>
+                </div>
               </CardContent>
               <CardFooter className="flex justify-between border-t border-slate-200 dark:border-slate-800">
-                <span className="text-sm text-slate-500 dark:text-slate-400">
+                <span className="text-sm text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
                   Source: {document.url}
                 </span>
-                {document.collection && (
-                  <span className="text-sm text-slate-500 dark:text-slate-400">
-                    Collection: {document.collection}
-                  </span>
-                )}
               </CardFooter>
             </Card>
           </div>
