@@ -2,21 +2,26 @@
 
 import React, { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Cpu, MessageSquare, Search } from 'lucide-react';
+import { Sun, Moon, Cpu, MessageSquare, Search, Upload as UploadIcon } from 'lucide-react';
 import CollectionList from '../components/CollectionList';
 import SearchBar from '../components/SearchBar';
 import SearchResults from '../components/SearchResults';
 import ChatComponent from '../components/Chat/ChatComponent';
+import UploadModal from '../components/UploadModal';
 import { useSearchStore } from '../store/searchStore';
 import { useSearch, useCollections } from '../services/api';
+import { useUpload } from '../hooks/useUpload';
 import { SearchResultItem } from '../types';
 
 export default function Home() {
   const { theme, setTheme } = useTheme();
   const { query, selectedCollection, filters, currentPage, pageSize, setQuery, setSelectedCollection, setPage, setPageSize } = useSearchStore();
   const [activeTab, setActiveTab] = useState<'search' | 'chat'>('search');
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadSuccessMessage, setUploadSuccessMessage] = useState('');
 
-  const { data: collectionsData, isLoading: collectionsLoading } = useCollections();
+  const { data: collectionsData, isLoading: collectionsLoading, refetch: refetchCollections } = useCollections();
 
   const collections = collectionsData?.collections?.map((name: string) => ({
     value: name,
@@ -32,16 +37,28 @@ export default function Home() {
   const { data, isLoading, error } = useSearch(query, selectedCollection, filters, pageSize, currentPage);
   const results: SearchResultItem[] = data?.results || [];
 
-  useEffect(() => {
-  }, []);
+  const hasNextPage = results.length === pageSize;
+  const hasPrevPage = currentPage > 1;
+
+  const uploadMutation = useUpload();
 
   const handleSearch = (searchQuery: string) => {
     setQuery(searchQuery);
     setPage(1);
   };
 
-  const hasNextPage = results.length === pageSize;
-  const hasPrevPage = currentPage > 1;
+  const handleUpload = async (file: File, category: string, collection: string) => {
+    try {
+      const result = await uploadMutation.mutateAsync({ file, category, collection });
+      setUploadSuccessMessage(`Uploaded ${file.name} (${result.chunks_created} chunks) to ${collection}`);
+      setUploadSuccess(true);
+
+      // Refresh collections after upload
+      refetchCollections();
+    } catch (error) {
+      console.error('Upload failed:', error);
+    }
+  };
 
   return (
     <main className="min-h-screen transition-colors duration-500 bg-slate-50 dark:bg-[#0B0F1A] text-slate-900 dark:text-slate-200 py-8 px-4 md:px-6">
@@ -86,14 +103,32 @@ export default function Home() {
                   <div className="h-12 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
                 </div>
               ) : collections.length > 0 ? (
-                <CollectionList
-                  collections={collections}
-                  selectedCollection={selectedCollection}
-                  onSelectCollection={setSelectedCollection}
-                />
+                <>
+                  <CollectionList
+                    collections={collections}
+                    selectedCollection={selectedCollection}
+                    onSelectCollection={setSelectedCollection}
+                  />
+                  <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+                    <button
+                      onClick={() => setIsUploadModalOpen(true)}
+                      className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      <UploadIcon className="h-4 w-4" />
+                      <span>Upload Document</span>
+                    </button>
+                  </div>
+                </>
               ) : (
                 <div className="text-center text-slate-500 dark:text-slate-400">
                   <p className="text-sm">No collections available</p>
+                  <button
+                    onClick={() => setIsUploadModalOpen(true)}
+                    className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  >
+                    <UploadIcon className="h-4 w-4" />
+                    <span>Upload Document</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -158,6 +193,20 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
+      <UploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => {
+          setIsUploadModalOpen(false);
+          setUploadSuccess(false);
+        }}
+        onUpload={handleUpload}
+        collections={collections}
+        isUploading={uploadMutation.isPending}
+        error={uploadMutation.error?.message || null}
+        success={uploadSuccess}
+        successMessage={uploadSuccessMessage}
+      />
     </main>
   );
 }

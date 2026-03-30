@@ -31,12 +31,15 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 ## 📸 Project Screenshots
 
 1. **Search Interface**
-   ![Search Interface](https://github.com/user-attachments/assets/601017ad-95d3-449b-9869-ad02c40b17d7)
+   ![Search Interface](https://github.com/user-attachments/assets/869c41b2-e003-418d-b912-ae6344df0000)
    ![Sidebar Interface](https://github.com/user-attachments/assets/d5dd3be5-95d7-4012-ad33-92eb65816f1b)
 
 2. **Chat Interface**
-   ![Chat Interface](https://github.com/user-attachments/assets/2c150b17-a56e-41da-ade4-8b9155b3bedc)
+   ![Chat Interface](https://github.com/user-attachments/assets/15a33bd8-4cff-42cb-bebe-39c09708a33c)
 
+3. **Upload Interface**
+   ![Upload Interface](https://github.com/user-attachments/assets/f9536444-0351-4f8b-8b3f-5969d6aa800f)
+   ![Upload success Interface](https://github.com/user-attachments/assets/e77756f3-004b-453f-a86c-0b360b0fb7c7)
 ---
 
 ## 🏗 System Architecture
