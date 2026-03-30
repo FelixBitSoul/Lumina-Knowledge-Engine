@@ -9,17 +9,18 @@ Built with Python 3.11, FastAPI, and Sentence Transformers.
 ## ✨ Features
 
 - **🔢 Vector Embeddings**: 384-dimensional embeddings using all-MiniLM-L6-v2
-- **🔍 Semantic Search**: Cosine similarity search with relevance reranking
+- **🔍 Semantic Search**: Cosine similarity search with Qdrant prefetch pagination
 - **🎯 Query Rewriting**: Context-aware query rewriting for multi-turn conversations
-- **📊 Reranking**: Cross-Encoder based relevance optimization
+- **📊 Reranking**: Cross-Encoder based relevance optimization (for chat only)
 - **🔄 Multi-Collection Search**: Search across multiple vector collections
-- **💬 Conversational AI**: Context-aware chat interface
+- **💬 Conversational AI**: Context-aware chat interface with reranking
 - **⚡ High Performance**: FastAPI async endpoints for optimal throughput
 - **📊 RESTful API**: OpenAPI-documented endpoints with automatic validation
 - **🐳 Docker Ready**: Production-ready containerization
 - **💾 Qdrant Integration**: High-performance vector database storage
 - **🔄 Model Caching**: Automatic model download and caching
 - **📈 Health Monitoring**: Built-in health check endpoints
+- **📄 Collections API**: Dynamic collection listing from Qdrant
 
 ---
 
@@ -33,6 +34,7 @@ Built with Python 3.11, FastAPI, and Sentence Transformers.
 │  📄 main.py                         │
 │    ├── GET  /health                │
 │    ├── POST /ingest                │
+│    ├── GET  /collections           │
 │    ├── GET  /search                │
 │    └── POST /chat                  │
 ├─────────────────────────────────────┤

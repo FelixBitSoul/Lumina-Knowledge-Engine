@@ -137,17 +137,14 @@ paths:
       summary: Semantic search
       description: |
         Perform semantic similarity search across stored documents.
-        
-        The search process:
-        1. Encodes the query using the same embedding model
-        2. Performs vector similarity search in Qdrant
-        3. Returns ranked results with similarity scores
+        Uses Qdrant prefetch for efficient pagination without Cross-Encoder reranking.
         
         ## Search Behavior
         - Uses COSINE similarity for matching
         - Returns results sorted by relevance (highest score first)
         - Includes content preview (first 200 characters)
-        - Supports configurable result limits (1-20)
+        - Supports configurable page_size (1-20) and page number
+        - Uses Qdrant prefetch for efficient pagination
         
         ## Query Tips
         - Use natural language questions
@@ -163,18 +160,57 @@ paths:
             type: string
             minLength: 1
             maxLength: 500
-            pattern: '^[^\s].*[^\s]$'
           example: "how to install docker"
-        - name: limit
+        - name: page_size
           in: query
           required: false
-          description: Maximum number of results to return
+          description: Number of results per page (1-20)
           schema:
             type: integer
             minimum: 1
             maximum: 20
             default: 3
           example: 5
+        - name: page
+          in: query
+          required: false
+          description: Page number (1-based)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: collection
+          in: query
+          required: false
+          description: Collection name to search in
+          schema:
+            type: string
+          example: "knowledge_base"
+        - name: title
+          in: query
+          required: false
+          description: Filter by title (full-text search)
+          schema:
+            type: string
+        - name: domain
+          in: query
+          required: false
+          description: Filter by domain (exact match)
+          schema:
+            type: string
+        - name: start_time
+          in: query
+          required: false
+          description: Filter by start time (ISO format)
+          schema:
+            type: string
+        - name: end_time
+          in: query
+          required: false
+          description: Filter by end time (ISO format)
+          schema:
+            type: string
       responses:
         '200':
           description: Search completed successfully
@@ -202,9 +238,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                search_error:
-                  $ref: '#/components/examples/SearchError'
+
+  /collections:
+    get:
+      tags:
+        - Collections
+      summary: Get all collections
+      description: |
+        Get all available collections from Qdrant vector database.
+        Use this endpoint to populate the collection selector in the UI.
+      operationId: get_collections
+      responses:
+        '200':
+          description: Collections retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionsResponse'
+              example:
+                collections: ["knowledge_base", "tech_docs", "web_docs"]
+                count: 3
+        '500':
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   schemas:
@@ -289,14 +348,26 @@ components:
           type: string
           description: The search query that was processed
           example: "how to install docker"
-        limit:
+        page_size:
           type: integer
-          description: Maximum number of results requested
+          description: Number of results per page
           example: 5
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        offset:
+          type: integer
+          description: Offset for pagination
+          example: 0
         collection:
           type: string
           description: Name of the searched collection
           example: "knowledge_base"
+        filters:
+          type: object
+          description: Applied filters (null if none)
+          example: null
         latency_ms:
           type: integer
           description: Search processing time in milliseconds
@@ -308,10 +379,30 @@ components:
             $ref: '#/components/schemas/SearchResult'
       required:
         - query
-        - limit
+        - page_size
+        - page
+        - offset
         - collection
         - latency_ms
         - results
+
+    CollectionsResponse:
+      type: object
+      description: Collections list response
+      properties:
+        collections:
+          type: array
+          items:
+            type: string
+          description: List of collection names
+          example: ["knowledge_base", "tech_docs", "web_docs"]
+        count:
+          type: integer
+          description: Number of collections
+          example: 3
+      required:
+        - collections
+        - count
 
     SearchResult:
       type: object
@@ -333,16 +424,25 @@ components:
           format: uri
           description: Source URL of the document
           example: "https://docs.docker.com/get-started/"
+        domain:
+          type: string
+          description: Document domain
+          example: "docs.docker.com"
         content:
           type: string
-          description: Content preview (first 200 characters)
-          maxLength: 200
+          description: Content preview
           example: "Docker is a platform for developing, shipping, and running applications in containers..."
+        updated_at:
+          type: string
+          description: Last update time (ISO format)
+          example: "2026-03-29T10:30:00Z"
       required:
         - score
         - title
         - url
+        - domain
         - content
+        - updated_at
 
     ErrorResponse:
       type: object
@@ -426,25 +526,35 @@ components:
       summary: Search with results
       value:
         query: "how to install docker"
-        limit: 5
+        page_size: 5
+        page: 1
+        offset: 0
         collection: "knowledge_base"
+        filters: null
         latency_ms: 45
         results:
           - score: 0.95
             title: "Docker Installation Guide"
             url: "https://docs.docker.com/get-started/"
+            domain: "docs.docker.com"
             content: "Docker is a platform for developing, shipping, and running applications in containers..."
+            updated_at: "2026-03-29T10:30:00Z"
           - score: 0.87
             title: "Container Basics"
             url: "https://docs.docker.com/get-started/overview/"
+            domain: "docs.docker.com"
             content: "Containers are lightweight, standalone packages that include everything..."
+            updated_at: "2026-03-28T15:45:00Z"
 
     NoResults:
       summary: Search with no results
       value:
         query: "nonexistent topic"
-        limit: 3
+        page_size: 3
+        page: 1
+        offset: 0
         collection: "knowledge_base"
+        filters: null
         latency_ms: 25
         results: []
 
@@ -480,4 +590,6 @@ tags:
   - name: Documents
     description: Document ingestion and management
   - name: Search
-    description: Semantic search functionality
+    description: Semantic search functionality with pagination
+  - name: Collections
+    description: Collection management and listing

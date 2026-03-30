@@ -22,7 +22,7 @@ Built with [Next.js 15](https://nextjs.org), [Tailwind CSS v4](https://tailwindc
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm, yarn, or pnpm
 - Brain API running (see [lumina-brain/README.md](../lumina-brain/README.md))
 
@@ -109,7 +109,8 @@ portal-next/
 
 The Portal connects to the Brain API for:
 
-- **Semantic Search**: `GET /search?query={query}&limit={limit}`
+- **Semantic Search**: `GET /search?query={query}&page_size={size}&page={num}`
+- **Get Collections**: `GET /collections`
 - **Health Check**: `GET /health`
 
 ### Search Flow
@@ -141,7 +142,9 @@ interface SearchResult {
 
 interface SearchResponse {
   query: string;
-  limit: number;
+  page_size: number;
+  page: number;
+  offset: number;
   collection: string;
   filters: SearchFilters | null;
   latency_ms: number;
