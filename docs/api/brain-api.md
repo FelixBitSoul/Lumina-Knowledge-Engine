@@ -405,7 +405,7 @@ curl -X POST http://localhost:8000/chat \
 
 ---
 
-### 5. Streaming Chat API
+### 6. Streaming Chat API
 
 **Endpoint**: `POST /chat/stream`
 
@@ -646,7 +646,7 @@ documents = [
     },
     {
         "url": "https://fastapi.tiangolo.com/tutorial/",
-        "title": "FastAPI Tutorial", 
+        "title": "FastAPI Tutorial",
         "content": "FastAPI is a modern, fast web framework for building APIs with Python..."
     }
 ]
