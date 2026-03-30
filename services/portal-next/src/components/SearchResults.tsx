@@ -1,19 +1,12 @@
 import React, { useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Clock, Globe } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from './ui/card';
 import { Badge } from './ui/badge';
 import DocumentSidebar from './DocumentSidebar';
-
-interface SearchResult {
-  title: string;
-  url: string;
-  content: string;
-  score: number;
-  collection?: string;
-}
+import { SearchResultItem } from '../types';
 
 interface SearchResultsProps {
-  results: SearchResult[];
+  results: SearchResultItem[];
   error: string | null;
   loading: boolean;
   query: string;
@@ -25,13 +18,23 @@ const SearchResults: React.FC<SearchResultsProps> = ({
   loading,
   query,
 }) => {
-  const [selectedDocument, setSelectedDocument] = useState<SearchResult | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<SearchResultItem | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const handleDocumentClick = (result: SearchResult) => {
+  const handleDocumentClick = (result: SearchResultItem) => {
     setSelectedDocument(result);
     setIsSidebarOpen(true);
   };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString();
+    } catch {
+      return dateString;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-16">
@@ -83,11 +86,9 @@ const SearchResults: React.FC<SearchResultsProps> = ({
                   <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                     Score: {(result.score * 100).toFixed(1)}%
                   </Badge>
-                  {result.collection && (
-                    <Badge variant="outline" className="border-green-500 text-green-700 dark:border-green-400 dark:text-green-400">
-                      {result.collection}
-                    </Badge>
-                  )}
+                  <Badge variant="outline" className="border-purple-500 text-purple-700 dark:border-purple-400 dark:text-purple-400">
+                    {result.domain}
+                  </Badge>
                 </div>
               </div>
             </CardHeader>
@@ -97,10 +98,17 @@ const SearchResults: React.FC<SearchResultsProps> = ({
             </p>
             </CardContent>
             <CardFooter className="pt-0 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-mono text-slate-400 truncate max-w-[250px] md:max-w-md">
-                  Source: {result.url}
-                </span>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
+                <div className="flex items-center gap-4">
+                  <span className="text-xs font-mono text-slate-400 truncate max-w-[250px] md:max-w-md flex items-center gap-1">
+                    <Globe className="h-3 w-3" />
+                    {result.url}
+                  </span>
+                  <span className="text-xs text-slate-400 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatDate(result.updated_at)}
+                  </span>
+                </div>
                 <a
                   href={result.url}
                   target="_blank"

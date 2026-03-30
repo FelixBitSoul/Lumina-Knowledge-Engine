@@ -1,20 +1,45 @@
 import { useQuery } from '@tanstack/react-query';
+import { SearchFilters, SearchResponse } from '../types';
 
 export const searchAPI = {
-  search: async (query: string, collection: string = 'all') => {
+  search: async (
+    query: string, 
+    collection: string = 'all',
+    filters?: SearchFilters,
+    limit: number = 3
+  ) => {
     try {
-      // Build search URL with collection parameter
-      let searchUrl = `http://localhost:8000/search?query=${encodeURIComponent(query)}`;
+      // Build search URL with parameters
+      const params = new URLSearchParams();
+      params.append('query', query);
+      params.append('limit', limit.toString());
+      
       if (collection !== 'all') {
-        searchUrl += `&collection=${encodeURIComponent(collection)}`;
+        params.append('collection', collection);
+      }
+      
+      // Add filter parameters
+      if (filters) {
+        if (filters.title) {
+          params.append('title', filters.title);
+        }
+        if (filters.domain) {
+          params.append('domain', filters.domain);
+        }
+        if (filters.start_time) {
+          params.append('start_time', filters.start_time);
+        }
+        if (filters.end_time) {
+          params.append('end_time', filters.end_time);
+        }
       }
 
       // Connect to the Python FastAPI search endpoint
-      const response = await fetch(searchUrl);
+      const response = await fetch(`http://localhost:8000/search?${params.toString()}`);
 
       if (!response.ok) throw new Error('Backend service unavailable');
 
-      const data = await response.json();
+      const data: SearchResponse = await response.json();
       return data;
     } catch (error) {
       console.error('Search failed:', error);
@@ -23,10 +48,15 @@ export const searchAPI = {
   },
 };
 
-export const useSearch = (query: string, collection: string = 'all') => {
+export const useSearch = (
+  query: string, 
+  collection: string = 'all',
+  filters?: SearchFilters,
+  limit: number = 3
+) => {
   return useQuery({
-    queryKey: ['search', query, collection],
-    queryFn: () => searchAPI.search(query, collection),
+    queryKey: ['search', query, collection, filters, limit],
+    queryFn: () => searchAPI.search(query, collection, filters, limit),
     enabled: !!query,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });

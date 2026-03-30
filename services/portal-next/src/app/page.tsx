@@ -9,6 +9,7 @@ import SearchResults from '../components/SearchResults';
 import ChatComponent from '../components/Chat/ChatComponent';
 import { useSearchStore } from '../store/searchStore';
 import { useSearch } from '../services/api';
+import { SearchResultItem } from '../types';
 
 // Available collections
 const collections = [
@@ -18,23 +19,14 @@ const collections = [
   { value: 'backend-apis', label: 'Backend APIs' }
 ];
 
-// Search result interface
-interface SearchResult {
-  title: string;
-  url: string;
-  content: string;
-  score: number;
-  collection?: string;
-}
-
 export default function Home() {
   const { theme, setTheme } = useTheme();
-  const { query, selectedCollection, setQuery, setSelectedCollection } = useSearchStore();
+  const { query, selectedCollection, filters, setQuery, setSelectedCollection } = useSearchStore();
   const [activeTab, setActiveTab] = useState<'search' | 'chat'>('search');
 
   // Use React Query for search
-  const { data, isLoading, error } = useSearch(query, selectedCollection);
-  const results = data?.results || [];
+  const { data, isLoading, error } = useSearch(query, selectedCollection, filters);
+  const results: SearchResultItem[] = data?.results || [];
 
   // Ensure component is mounted to prevent hydration mismatch
   useEffect(() => {
