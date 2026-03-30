@@ -296,7 +296,78 @@ curl -X GET "http://localhost:8000/search?query=docker&page_size=5&collection=te
 
 ---
 
-### 4. Collections API
+### 4. Document Upload API
+
+**Endpoint**: `POST /upload`
+
+**Purpose**: Upload and ingest documents (PDF, text files)
+
+**Request**:
+```http
+POST /upload HTTP/1.1
+Host: localhost:8000
+Content-Type: multipart/form-data
+
+file=@document.pdf
+```
+
+**Request Schema**:
+```typescript
+interface UploadRequest {
+  file: File;  // PDF or text file
+}
+```
+
+**Validation Rules**:
+- `file`: Required, must be PDF or text file
+- File size: Maximum 10MB
+
+**Success Response**:
+```json
+{
+  "status": "success",
+  "documents": [
+    {
+      "title": "Document Title",
+      "point_id": "550e8400-e29b-41d4-a716-446655440000"
+    }
+  ]
+}
+```
+
+**Success Schema**:
+```typescript
+interface UploadSuccessResponse {
+  status: "success";
+  documents: Array<{
+    title: string;   // Document title
+    point_id: string; // UUID of stored vector point
+  }>;
+}
+```
+
+**Error Response**:
+```json
+{
+  "status": "error",
+  "message": "Invalid file format"
+}
+```
+
+**Status Codes**:
+- `200 OK`: File successfully uploaded and ingested
+- `400 Bad Request`: Invalid file format or size
+- `500 Internal Server Error`: Processing error
+
+**Example**:
+```bash
+curl -X POST http://localhost:8000/upload \
+  -F "file=@document.pdf"
+```
+
+---
+
+### 5. Collections API
 
 **Endpoint**: `GET /collections`
 
@@ -335,7 +406,7 @@ curl -X GET http://localhost:8000/collections
 
 ---
 
-### 5. Chat API
+### 6. Chat API
 
 **Endpoint**: `POST /chat`
 
@@ -405,7 +476,7 @@ curl -X POST http://localhost:8000/chat \
 
 ---
 
-### 6. Streaming Chat API
+### 7. Streaming Chat API
 
 **Endpoint**: `POST /chat/stream`
 

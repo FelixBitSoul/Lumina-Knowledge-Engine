@@ -77,7 +77,8 @@ class QdrantService:
         target_collection = collection_name or settings.qdrant.collection
         self._ensure_collection(target_collection)
 
-        point_id = self.generate_id_from_url(url)
+        # Generate integer ID by hashing the URL
+        point_id = int(hashlib.sha256(url.encode()).hexdigest(), 16) % 10**18
 
         # Get current UTC time
         updated_at = datetime.now(timezone.utc).isoformat()
@@ -102,7 +103,7 @@ class QdrantService:
             ],
         )
 
-        return point_id
+        return str(point_id)
 
     def search(self, query_vector: list, limit: int, collection_name: str = None) -> list:
         """Search for similar documents"""

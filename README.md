@@ -1,9 +1,9 @@
 # Lumina Knowledge Engine 🔍
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go&logoColor=white)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go&logoColor=white)](https://golang.org/)
 [![Python Version](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.0.2-000000?style=flat&logo=next.js&logoColor=white)](https://nextjs.org/)
 
 A modern **RAG (Retrieval-Augmented Generation)** system for semantic document search and knowledge management. Built with Go, Python, and Next.js for high performance and scalability.
 
@@ -31,12 +31,15 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 ## 📸 Project Screenshots
 
 1. **Search Interface**
-   ![Search Interface](https://github.com/user-attachments/assets/601017ad-95d3-449b-9869-ad02c40b17d7)
+   ![Search Interface](https://github.com/user-attachments/assets/869c41b2-e003-418d-b912-ae6344df0000)
    ![Sidebar Interface](https://github.com/user-attachments/assets/d5dd3be5-95d7-4012-ad33-92eb65816f1b)
 
 2. **Chat Interface**
-   ![Chat Interface](https://github.com/user-attachments/assets/2c150b17-a56e-41da-ade4-8b9155b3bedc)
+   ![Chat Interface](https://github.com/user-attachments/assets/15a33bd8-4cff-42cb-bebe-39c09708a33c)
 
+3. **Upload Interface**
+   ![Upload Interface](https://github.com/user-attachments/assets/f9536444-0351-4f8b-8b3f-5969d6aa800f)
+   ![Upload success Interface](https://github.com/user-attachments/assets/e77756f3-004b-453f-a86c-0b360b0fb7c7)
 ---
 
 ## 🏗 System Architecture
@@ -67,13 +70,19 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 
 ## 🛠 Tech Stack
 
-- **🐭 Backend**: Go (Colly crawler), Python (FastAPI, Qdrant-Client, sentence-transformers)
-- **🤖 AI/ML**: HuggingFace Transformers, all-MiniLM-L6-v2 embeddings, Cross-Encoder reranking, OpenAI API
-- **⚛️ Frontend**: Next.js 15, React 19, Tailwind CSS v4, Lucide Icons
+### Core Technologies
+- **🐭 Backend**: Go 1.24 (Colly 2.2.0 crawler), Python 3.11+ (FastAPI 0.104+)
+- **🤖 AI/ML**: sentence-transformers 2.2+, Qdrant-Client 1.6+, OpenAI 1.0+
+- **⚛️ Frontend**: Next.js 15.0.2, React 19.0.0, Tailwind CSS v4, Lucide Icons 0.577.0
 - **💾 Database**: Qdrant Vector Database (384-dimensional vectors)
 - **🐳 Infrastructure**: Docker, Docker Compose
 - **📊 Monitoring**: Health checks, structured logging
 - **🔧 AI Services**: Query rewriting, relevance reranking, conversational AI
+
+### Detailed Dependencies
+- **Crawler (Go)**: Colly v2.2.0, go-readability, goquery, godotenv
+- **Brain API (Python)**: FastAPI, uvicorn, sentence-transformers, qdrant-client, pydantic, openai, PyMuPDF
+- **Portal (Next.js)**: React 19, @tanstack/react-query, zustand, shadcn, tailwind-merge
 
 ---
 
@@ -116,7 +125,7 @@ cd services/portal-next
 npm install
 npm run dev
 
-# 4. Optional: Run Crawler (Go 1.22+)
+# 4. Optional: Run Crawler (Go 1.24+)
 cd services/crawler-go
 go run ./cmd/crawler
 ```
@@ -292,7 +301,7 @@ See [Crawler Config Reference](docs/api/crawler-config.md) for detailed YAML con
 
 ### Prerequisites
 
-- Go 1.22+
+- Go 1.24+
 - Python 3.11+
 - Node.js 18+
 - Docker 20.10+

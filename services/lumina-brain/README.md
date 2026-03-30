@@ -8,19 +8,21 @@ Built with Python 3.11, FastAPI, and Sentence Transformers.
 
 ## ✨ Features
 
-- **🔢 Vector Embeddings**: 384-dimensional embeddings using all-MiniLM-L6-v2
-- **🔍 Semantic Search**: Cosine similarity search with Qdrant prefetch pagination
+- **🔢 Vector Embeddings**: 384-dimensional embeddings using all-MiniLM-L6-v2 with automatic model caching
+- **🔍 Semantic Search**: Cosine similarity search with Qdrant prefetch pagination and metadata filtering
 - **🎯 Query Rewriting**: Context-aware query rewriting for multi-turn conversations
 - **📊 Reranking**: Cross-Encoder based relevance optimization (for chat only)
-- **🔄 Multi-Collection Search**: Search across multiple vector collections
+- **🔄 Multi-Collection Search**: Search across multiple vector collections with unified results
 - **💬 Conversational AI**: Context-aware chat interface with reranking
 - **⚡ High Performance**: FastAPI async endpoints for optimal throughput
 - **📊 RESTful API**: OpenAPI-documented endpoints with automatic validation
 - **🐳 Docker Ready**: Production-ready containerization
-- **💾 Qdrant Integration**: High-performance vector database storage
+- **💾 Qdrant Integration**: High-performance vector database storage with automatic collection creation
 - **🔄 Model Caching**: Automatic model download and caching
 - **📈 Health Monitoring**: Built-in health check endpoints
 - **📄 Collections API**: Dynamic collection listing from Qdrant
+- **📥 Document Upload**: Support for PDF and text file uploads
+- **🔧 Metadata Filtering**: Filter by title, domain, URL, and time range
 
 ---
 
@@ -144,32 +146,73 @@ curl -X POST http://localhost:8000/ingest \
 
 ---
 
-### 🔎 `GET /search`
+### 📤 `POST /upload`
 
-Perform semantic similarity search with relevance reranking.
+Upload and ingest documents (PDF, text files).
 
 **Request:**
 ```bash
-curl -X GET "http://localhost:8000/search?query=how%20to%20install%20docker&limit=5"
+curl -X POST http://localhost:8000/upload \
+  -F "file=@document.pdf"
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "documents": [
+    {
+      "title": "Document Title",
+      "point_id": "550e8400-e29b-41d4-a716-446655440000"
+    }
+  ]
+}
+```
+
+---
+
+### 🔎 `GET /search`
+
+Perform semantic similarity search with metadata filtering and Qdrant prefetch pagination.
+
+**Request:**
+```bash
+curl -X GET "http://localhost:8000/search?query=how%20to%20install%20docker&limit=5&page=1&domain=docs.docker.com"
 ```
 
 **Response:**
 ```json
 {
   "query": "how to install docker",
-  "limit": 5,
+  "page_size": 5,
+  "page": 1,
+  "offset": 0,
   "collection": "knowledge_base",
+  "filters": {"domain": "docs.docker.com"},
   "latency_ms": 100,
   "results": [
     {
       "score": 0.98,
-      "vector_score": 0.92,
-      "rerank_score": 0.98,
       "title": "Docker Installation Guide",
       "url": "https://docs.docker.com/get-started/",
-      "content": "Docker is a platform for developing..."
+      "domain": "docs.docker.com",
+      "content": "Docker is a platform for developing...",
+      "updated_at": "2026-03-30T12:00:00Z"
     }
   ]
+}
+```
+
+---
+
+### 📚 `GET /collections`
+
+List all available vector collections.
+
+**Response:**
+```json
+{
+  "collections": ["knowledge_base", "technical_docs"]
 }
 ```
 

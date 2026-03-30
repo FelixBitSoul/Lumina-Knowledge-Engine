@@ -73,10 +73,10 @@ Operational documentation for system administrators.
 
 Lumina Knowledge Engine is a modern RAG (Retrieval-Augmented Generation) system built with:
 
-- **Crawler (Go 1.22)**: High-performance web scraper
+- **Crawler (Go 1.24)**: High-performance web scraper
 - **Brain API (Python 3.11)**: Vector embedding & search service
 - **Vector DB (Qdrant)**: High-speed vector storage
-- **Portal (Next.js 15)**: Modern web interface
+- **Portal (Next.js 15.0.2)**: Modern web interface
 
 The system follows a microservices architecture with clear separation of concerns, enabling independent scaling and maintenance of each component.
 
@@ -88,4 +88,4 @@ The system follows a microservices architecture with clear separation of concern
 
 ---
 
-*Last updated: 2026-03-17*
+*Last updated: 2026-03-30*
