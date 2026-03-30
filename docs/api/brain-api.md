@@ -169,51 +169,62 @@ curl -X POST http://localhost:8000/ingest \
 
 **Endpoint**: `GET /search`
 
-**Purpose**: Perform semantic similarity search with relevance reranking
+**Purpose**: Perform semantic similarity search with Qdrant prefetch for efficient pagination
 
 **Request**:
 ```http
-GET /search?query=how%20to%20install%20docker&limit=5 HTTP/1.1
+GET /search?query=how%20to%20install%20docker&page_size=5&page=1 HTTP/1.1
 Host: localhost:8000
 ```
 
 **Query Parameters**:
 ```typescript
 interface SearchParams {
-  query: string;    // Search query (URL encoded, 1-500 chars)
-  limit?: number;   // Maximum results (1-20, default: 3)
-  collection?: string; // Vector collection name (optional)
+  query: string;       // Search query (URL encoded, 1-500 chars)
+  page_size?: number;  // Results per page (1-20, default: 3)
+  page?: number;       // Page number, 1-based (default: 1)
+  collection?: string;  // Vector collection name (optional)
+  // Meta filters
+  title?: string;      // Filter by title (full-text search)
+  domain?: string;      // Filter by domain (exact match)
+  start_time?: string;  // Filter by start time (ISO format)
+  end_time?: string;    // Filter by end time (ISO format)
 }
 ```
 
 **Parameter Validation**:
 - `query`: Required, 1-500 characters after URL decoding
-- `limit`: Optional, integer between 1-20
+- `page_size`: Optional, integer between 1-20, default 3
+- `page`: Optional, integer >= 1, default 1
 - `collection`: Optional, valid collection name
+- `title`, `domain`, `start_time`, `end_time`: Optional metadata filters
 
 **Response**:
 ```json
 {
   "query": "how to install docker",
-  "limit": 5,
+  "page_size": 5,
+  "page": 1,
+  "offset": 0,
   "collection": "knowledge_base",
-  "latency_ms": 100,
+  "filters": null,
+  "latency_ms": 45,
   "results": [
     {
-      "score": 0.98,
-      "vector_score": 0.92,
-      "rerank_score": 0.98,
+      "score": 0.92,
       "title": "Docker Installation Guide",
       "url": "https://docs.docker.com/get-started/",
-      "content": "Docker is a platform for developing, shipping, and running applications..."
+      "domain": "docs.docker.com",
+      "content": "Docker is a platform for developing, shipping, and running applications...",
+      "updated_at": "2026-03-29T10:30:00Z"
     },
     {
-      "score": 0.95,
-      "vector_score": 0.87,
-      "rerank_score": 0.95,
+      "score": 0.89,
       "title": "Container Basics",
       "url": "https://docs.docker.com/get-started/overview/",
-      "content": "Containers are lightweight, standalone packages that include everything..."
+      "domain": "docs.docker.com",
+      "content": "Containers are lightweight, standalone packages that include everything...",
+      "updated_at": "2026-03-28T15:45:00Z"
     }
   ]
 }
@@ -223,22 +234,38 @@ interface SearchParams {
 ```typescript
 interface SearchResponse {
   query: string;
-  limit: number;
+  page_size: number;
+  page: number;
+  offset: number;
   collection: string;
+  filters: SearchFilters | null;
   latency_ms: number;
   results: SearchResult[];
 }
 
+interface SearchFilters {
+  title?: string;
+  domain?: string;
+  start_time?: string;
+  end_time?: string;
+}
+
 interface SearchResult {
-  score: number;         // Final relevance score (0.0-1.0)
-  vector_score: number;  // Original vector similarity score
-  rerank_score: number;  // Cross-Encoder reranking score
-  title: string;         // Document title
-  url: string;           // Source URL
-  content: string;       // Content preview
-  collection?: string;   // Collection name (if multi-collection search)
+  score: number;       // Vector similarity score (0.0-1.0)
+  title: string;        // Document title
+  url: string;          // Source URL
+  domain: string;       // Document domain
+  content: string;      // Content preview
+  updated_at: string;   // Last update time (ISO format)
 }
 ```
+
+**Pagination**:
+- Results are paginated with `page_size` and `page` parameters
+- `offset = (page - 1) * page_size`
+- Response includes current page info for UI display
+
+**Note**: Search uses Qdrant prefetch for efficient pagination without Cross-Encoder reranking. For chat functionality, reranking is applied to improve result quality.
 
 **Status Codes**:
 - `200 OK`: Search completed successfully
@@ -252,31 +279,63 @@ interface SearchResult {
 curl -X GET "http://localhost:8000/search?query=react%20hooks"
 ```
 
-**Search with Limit**:
+**Paginated Search**:
 ```bash
-curl -X GET "http://localhost:8000/search?query=python%20tutorial&limit=10"
+curl -X GET "http://localhost:8000/search?query=python%20tutorial&page_size=10&page=2"
+```
+
+**Search with Filters**:
+```bash
+curl -X GET "http://localhost:8000/search?query=docker&page_size=5&domain=docs.docker.com"
 ```
 
 **Search in Specific Collection**:
 ```bash
-curl -X GET "http://localhost:8000/search?query=docker&limit=5&collection=tech_docs"
-```
-
-**Invalid Query (Empty)**:
-```bash
-curl -X GET "http://localhost:8000/search?query="
-# Response: 400 Bad Request - Query cannot be empty
-```
-
-**Invalid Limit (Too High)**:
-```bash
-curl -X GET "http://localhost:8000/search?query=test&limit=50"
-# Response: 400 Bad Request - Limit must be between 1-20
+curl -X GET "http://localhost:8000/search?query=docker&page_size=5&collection=tech_docs"
 ```
 
 ---
 
-### 4. Chat API
+### 4. Collections API
+
+**Endpoint**: `GET /collections`
+
+**Purpose**: Get all available collections from Qdrant
+
+**Request**:
+```http
+GET /collections HTTP/1.1
+Host: localhost:8000
+```
+
+**Response**:
+```json
+{
+  "collections": ["knowledge_base", "tech_docs", "web_docs"],
+  "count": 3
+}
+```
+
+**Response Schema**:
+```typescript
+interface CollectionsResponse {
+  collections: string[];  // List of collection names
+  count: number;          // Number of collections
+}
+```
+
+**Status Codes**:
+- `200 OK`: Collections retrieved successfully
+- `500 Internal Server Error`: Database error
+
+**Example**:
+```bash
+curl -X GET http://localhost:8000/collections
+```
+
+---
+
+### 5. Chat API
 
 **Endpoint**: `POST /chat`
 
@@ -346,7 +405,7 @@ curl -X POST http://localhost:8000/chat \
 
 ---
 
-### 5. Streaming Chat API
+### 6. Streaming Chat API
 
 **Endpoint**: `POST /chat/stream`
 
@@ -587,7 +646,7 @@ documents = [
     },
     {
         "url": "https://fastapi.tiangolo.com/tutorial/",
-        "title": "FastAPI Tutorial", 
+        "title": "FastAPI Tutorial",
         "content": "FastAPI is a modern, fast web framework for building APIs with Python..."
     }
 ]
