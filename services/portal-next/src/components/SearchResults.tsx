@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ExternalLink, Clock, Globe } from 'lucide-react';
+import { ExternalLink, Clock, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from './ui/card';
 import { Badge } from './ui/badge';
 import DocumentSidebar from './DocumentSidebar';
+import { Button } from './ui/button';
 import { SearchResultItem } from '../types';
 
 interface SearchResultsProps {
@@ -10,13 +11,27 @@ interface SearchResultsProps {
   error: string | null;
   loading: boolean;
   query: string;
+  currentPage?: number;
+  pageSize?: number;
+  hasNextPage?: boolean;
+  hasPrevPage?: boolean;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
 }
+
+const PAGE_SIZE_OPTIONS = [3, 5, 10, 20];
 
 const SearchResults: React.FC<SearchResultsProps> = ({
   results,
   error,
   loading,
   query,
+  currentPage = 1,
+  pageSize = 3,
+  hasNextPage = false,
+  hasPrevPage = false,
+  onPageChange,
+  onPageSizeChange,
 }) => {
   const [selectedDocument, setSelectedDocument] = useState<SearchResultItem | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -121,6 +136,51 @@ const SearchResults: React.FC<SearchResultsProps> = ({
             </CardFooter>
           </Card>
         ))}
+      </div>
+
+      <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-600 dark:text-slate-400">Results per page:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+            className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {onPageChange && (
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={!hasPrevPage}
+              className="flex items-center gap-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <span className="text-sm text-slate-600 dark:text-slate-400">
+              Page {currentPage}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={!hasNextPage}
+              className="flex items-center gap-1"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {selectedDocument && (

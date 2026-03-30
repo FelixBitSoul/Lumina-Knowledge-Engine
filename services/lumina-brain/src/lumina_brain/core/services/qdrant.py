@@ -182,56 +182,7 @@ class QdrantService:
         target_collection = collection_name or settings.qdrant.collection
         self._ensure_collection(target_collection)
 
-        # Build Qdrant filter conditions
-        qdrant_filter = None
-        if filters:
-            must_conditions = []
-
-            # Title full-text search
-            if filters.get("title"):
-                must_conditions.append(
-                    FieldCondition(
-                        key="title",
-                        match=MatchText(text=filters["title"])
-                    )
-                )
-
-            # URL keyword search (exact match)
-            if filters.get("url"):
-                must_conditions.append(
-                    FieldCondition(
-                        key="url",
-                        match=MatchValue(value=filters["url"])
-                    )
-                )
-
-            # Domain keyword search (exact match)
-            if filters.get("domain"):
-                must_conditions.append(
-                    FieldCondition(
-                        key="domain",
-                        match=MatchValue(value=filters["domain"])
-                    )
-                )
-
-            # Time range filter
-            if filters.get("time_range"):
-                time_filter = filters["time_range"]
-                datetime_range_conditions = {}
-                if time_filter.get("start"):
-                    datetime_range_conditions["gte"] = time_filter["start"]
-                if time_filter.get("end"):
-                    datetime_range_conditions["lte"] = time_filter["end"]
-                if datetime_range_conditions:
-                    must_conditions.append(
-                        FieldCondition(
-                            key="updated_at",
-                            range=DatetimeRange(**datetime_range_conditions)
-                        )
-                    )
-
-            if must_conditions:
-                qdrant_filter = Filter(must=must_conditions)
+        qdrant_filter = self._build_filter(filters)
 
         search_result = self.client.query_points(
             collection_name=target_collection,
@@ -242,6 +193,95 @@ class QdrantService:
             query_filter=qdrant_filter
         )
 
+        return self._parse_search_result(search_result)
+
+    def search_prefetch(
+        self,
+        query_vector: list,
+        limit: int,
+        offset: int,
+        collection_name: str = None,
+        filters: dict = None,
+        prefetch_limit: int = 9
+    ) -> list:
+        """Search with prefetch for efficient pagination using Qdrant's prefetch capability"""
+        target_collection = collection_name or settings.qdrant.collection
+        self._ensure_collection(target_collection)
+
+        qdrant_filter = self._build_filter(filters)
+
+        search_result = self.client.query_points(
+            collection_name=target_collection,
+            query=query_vector,
+            limit=limit,
+            offset=offset,
+            with_payload=True,
+            with_vectors=False,
+            query_filter=qdrant_filter,
+            prefetch=[
+                {
+                    "limit": prefetch_limit,
+                    "offset": offset,
+                    "query": query_vector,
+                    "filter": qdrant_filter
+                }
+            ] if offset > 0 else None
+        )
+
+        return self._parse_search_result(search_result)
+
+    def _build_filter(self, filters: dict = None) -> Filter:
+        """Build Qdrant filter from filters dict"""
+        if not filters:
+            return None
+
+        must_conditions = []
+
+        if filters.get("title"):
+            must_conditions.append(
+                FieldCondition(
+                    key="title",
+                    match=MatchText(text=filters["title"])
+                )
+            )
+
+        if filters.get("url"):
+            must_conditions.append(
+                FieldCondition(
+                    key="url",
+                    match=MatchValue(value=filters["url"])
+                )
+            )
+
+        if filters.get("domain"):
+            must_conditions.append(
+                FieldCondition(
+                    key="domain",
+                    match=MatchValue(value=filters["domain"])
+                )
+            )
+
+        if filters.get("time_range"):
+            time_filter = filters["time_range"]
+            datetime_range_conditions = {}
+            if time_filter.get("start"):
+                datetime_range_conditions["gte"] = time_filter["start"]
+            if time_filter.get("end"):
+                datetime_range_conditions["lte"] = time_filter["end"]
+            if datetime_range_conditions:
+                must_conditions.append(
+                    FieldCondition(
+                        key="updated_at",
+                        range=DatetimeRange(**datetime_range_conditions)
+                    )
+                )
+
+        if must_conditions:
+            return Filter(must=must_conditions)
+        return None
+
+    def _parse_search_result(self, search_result) -> list:
+        """Parse Qdrant search result into list of dicts"""
         results = []
         for hit in search_result.points:
             payload = hit.payload or {}
@@ -253,7 +293,6 @@ class QdrantService:
                 "content": payload.get("content") or "",
                 "updated_at": payload.get("updated_at"),
             })
-
         return results
 
 

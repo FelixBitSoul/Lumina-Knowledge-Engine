@@ -3,22 +3,22 @@ import { SearchFilters, SearchResponse } from '../types';
 
 export const searchAPI = {
   search: async (
-    query: string, 
-    collection: string = 'all',
+    query: string,
+    collection: string,
     filters?: SearchFilters,
-    limit: number = 3
+    page_size: number = 3,
+    page: number = 1
   ) => {
     try {
-      // Build search URL with parameters
       const params = new URLSearchParams();
       params.append('query', query);
-      params.append('limit', limit.toString());
-      
-      if (collection !== 'all') {
+      params.append('page_size', page_size.toString());
+      params.append('page', page.toString());
+
+      if (collection) {
         params.append('collection', collection);
       }
-      
-      // Add filter parameters
+
       if (filters) {
         if (filters.title) {
           params.append('title', filters.title);
@@ -34,7 +34,6 @@ export const searchAPI = {
         }
       }
 
-      // Connect to the Python FastAPI search endpoint
       const response = await fetch(`http://localhost:8000/search?${params.toString()}`);
 
       if (!response.ok) throw new Error('Backend service unavailable');
@@ -48,16 +47,43 @@ export const searchAPI = {
   },
 };
 
+export const collectionsAPI = {
+  getCollections: async (): Promise<{ collections: string[]; count: number }> => {
+    try {
+      const response = await fetch('http://localhost:8000/collections');
+      if (!response.ok) throw new Error('Failed to fetch collections');
+      return response.json();
+    } catch (error) {
+      console.error('Failed to fetch collections:', error);
+      throw error;
+    }
+  },
+};
+
 export const useSearch = (
-  query: string, 
-  collection: string = 'all',
+  query: string,
+  collection: string,
   filters?: SearchFilters,
-  limit: number = 3
+  page_size: number = 3,
+  page: number = 1
 ) => {
   return useQuery({
-    queryKey: ['search', query, collection, filters, limit],
-    queryFn: () => searchAPI.search(query, collection, filters, limit),
-    enabled: !!query,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    queryKey: ['search', query, collection, filters, page_size, page],
+    queryFn: () => {
+      if (!collection) {
+        throw new Error('Please select a collection before searching');
+      }
+      return searchAPI.search(query, collection, filters, page_size, page);
+    },
+    enabled: !!query && !!collection,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useCollections = () => {
+  return useQuery({
+    queryKey: ['collections'],
+    queryFn: collectionsAPI.getCollections,
+    staleTime: 5 * 60 * 1000,
   });
 };

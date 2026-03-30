@@ -24,7 +24,9 @@ export interface SearchResultItem {
 
 export interface SearchResponse {
   query: string;
-  limit: number;
+  page_size: number;
+  page: number;
+  offset: number;
   collection: string;
   filters: SearchFilters | null;
   latency_ms: number;
