@@ -25,6 +25,11 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 - **🐳 Easy Deployment**: One-command Docker Compose deployment
 - **📊 RESTful API**: OpenAPI-documented endpoints for easy integration
 - **🔧 Configurable**: YAML-based configuration for crawling tasks and system settings
+- **⚡ Async Document Processing**: Celery-based background task processing for large files
+- **🌐 WebSocket Notifications**: Real-time document processing updates
+- **📦 MinIO Integration**: Object storage for original documents with preview support
+- **🔄 Task Management**: Task status tracking and monitoring
+- **🗑️ Document Management**: Support for document deletion and cleanup
 
 ---
 
@@ -49,6 +54,24 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 │   🕷️ Crawler    │──────▶│   🧠 Brain API   │──────▶│  💾 Qdrant DB   │
 │   (Go + Colly)  │      │ (Python/FastAPI) │      │  (Vector Store) │
 └─────────────────┘      └──────────────────┘      └─────────────────┘
+                               │       ▲
+                               ▼       │
+                        ┌──────────────────┐
+                        │  📦 MinIO       │
+                        │  (Object Store) │
+                        └──────────────────┘
+                               │       ▲
+                               ▼       │
+                        ┌──────────────────┐
+                        │  📡 Redis        │
+                        │  (Task Queue)   │
+                        └──────────────────┘
+                               │       ▲
+                               ▼       │
+                        ┌──────────────────┐
+                        │  🚀 Celery       │
+                        │  (Workers)      │
+                        └──────────────────┘
                                │
                                ▼
                         ┌──────────────────┐
@@ -65,6 +88,9 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 | **Brain API** | Python 3.11 + FastAPI | Vector embedding & semantic search | 8000 |
 | **Vector DB** | Qdrant | High-performance vector storage | 6333/6334 |
 | **Portal** | Next.js 15 + Tailwind | User interface & search frontend | 3000 |
+| **Redis** | Redis 7+ | Task queue & Pub/Sub | 6379 |
+| **MinIO** | MinIO | Object storage for documents | 9000 |
+| **Celery** | Celery 5+ | Background task processing | - |
 
 ---
 
@@ -81,8 +107,9 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 
 ### Detailed Dependencies
 - **Crawler (Go)**: Colly v2.2.0, go-readability, goquery, godotenv
-- **Brain API (Python)**: FastAPI, uvicorn, sentence-transformers, qdrant-client, pydantic, openai, PyMuPDF
-- **Portal (Next.js)**: React 19, @tanstack/react-query, zustand, shadcn, tailwind-merge
+- **Brain API (Python)**: FastAPI, uvicorn, sentence-transformers, qdrant-client, pydantic, openai, PyMuPDF, celery, redis, minio
+- **Portal (Next.js)**: React 19, @tanstack/react-query, zustand, shadcn, tailwind-merge, websocket
+- **Infrastructure**: Redis 7+, MinIO, Celery 5+
 
 ---
 

@@ -349,6 +349,56 @@ Scenario: API documentation
 
 ---
 
+### Feature 6: Async Document Processing
+
+**Description**: Non-blocking document upload and processing with real-time notifications
+
+**User Stories**:
+- As a user, I want to upload large documents without waiting for processing to complete
+- As a user, I want to see real-time progress updates for document processing
+- As a user, I want to be notified when document processing is complete
+- As an admin, I want to manage document processing tasks
+
+**Acceptance Criteria**:
+```gherkin
+Feature: Async Document Processing
+
+Scenario: File upload
+  Given I have a large PDF document
+  When I upload it through the portal
+  Then I should receive an immediate response with task ID
+  And the portal should show a processing modal
+  And I should see real-time progress updates
+
+Scenario: Real-time notifications
+  Given a document is being processed
+  When the processing status changes
+  Then I should see immediate updates in the processing modal
+  And I should be notified when processing is complete
+
+Scenario: Task status tracking
+  Given a document upload task
+  When I query the task status
+  Then I should see the current status and progress
+  And I should see the result when processing is complete
+
+Scenario: Document management
+  Given a processed document
+  When I request to delete it
+  Then the document should be removed from storage
+  And its embeddings should be removed from the vector database
+```
+
+**Technical Requirements**:
+- Celery task queue for background processing
+- Redis for task storage and Pub/Sub
+- MinIO for document storage
+- WebSocket for real-time notifications
+- Task status API endpoints
+- Document management API endpoints
+
+---
+
 ## 📊 Non-Functional Requirements
 
 ### Performance

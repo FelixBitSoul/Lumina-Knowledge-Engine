@@ -14,6 +14,11 @@ System design, component interactions, and technical decisions.
 - [Technical Decisions](./architecture/technical-decisions.md) - Design rationale and trade-offs
 - [Performance Characteristics](./architecture/performance-characteristics.md) - Performance analysis and bottlenecks
 
+### 📐 [Design](./design/)
+Detailed design documents for specific features.
+
+- [Async Document Processing](./design/async-document-processing-design.md) - Design for async document upload and processing
+
 ### � [API Documentation](./api/)
 Complete API specifications and integration guides.
 
