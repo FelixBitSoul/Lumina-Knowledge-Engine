@@ -32,3 +32,44 @@ export interface SearchResponse {
   latency_ms: number;
   results: SearchResultItem[];
 }
+
+// Upload-related types
+export interface UploadResponse {
+  task_id: string;
+  file_id: string;
+  file_name: string;
+  category: string;
+  collection: string;
+  status: string;
+  websocket_url: string;
+  message: string;
+}
+
+export interface TaskStatus {
+  task_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  total?: number;
+  current_step?: string;
+  result?: {
+    file_id: string;
+    filename: string;
+    chunks_created: number;
+    status: string;
+  };
+  error?: string;
+  message?: string;
+}
+
+export interface WebSocketMessage {
+  file_id: string;
+  status: 'connected' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  total?: number;
+  step?: string;
+  error?: string;
+  filename?: string;
+  chunks_created?: number;
+  collection?: string;
+  timestamp?: string;
+}

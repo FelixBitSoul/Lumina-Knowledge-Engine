@@ -54,9 +54,9 @@ class DocumentService:
         """Generate SHA-256 hash of content"""
         return hashlib.sha256(content.encode()).hexdigest()
 
-    def generate_document_id(self, file_name: str) -> str:
-        """Generate deterministic UUID from file name for idempotent uploads"""
-        hash_object = hashlib.sha256(file_name.encode())
+    def generate_document_id(self, content: str) -> str:
+        """Generate deterministic UUID from content for idempotent uploads"""
+        hash_object = hashlib.sha256(content.encode())
         hash_hex = hash_object.hexdigest()[:32]
         return str(uuid.UUID(hash_hex))
 

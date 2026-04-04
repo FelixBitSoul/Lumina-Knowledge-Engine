@@ -8,6 +8,7 @@ import SearchBar from '../components/SearchBar';
 import SearchResults from '../components/SearchResults';
 import ChatComponent from '../components/Chat/ChatComponent';
 import UploadModal from '../components/UploadModal';
+import ProcessingModal from '../components/ProcessingModal';
 import { useSearchStore } from '../store/searchStore';
 import { useSearch, useCollections } from '../services/api';
 import { useUpload } from '../hooks/useUpload';
@@ -18,8 +19,10 @@ export default function Home() {
   const { query, selectedCollection, filters, currentPage, pageSize, setQuery, setSelectedCollection, setPage, setPageSize } = useSearchStore();
   const [activeTab, setActiveTab] = useState<'search' | 'chat'>('search');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isProcessingModalOpen, setIsProcessingModalOpen] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState('');
+  const [processingInfo, setProcessingInfo] = useState<{ websocketUrl: string; fileName: string }>({ websocketUrl: '', fileName: '' });
 
   const { data: collectionsData, isLoading: collectionsLoading, refetch: refetchCollections } = useCollections();
 
@@ -50,11 +53,19 @@ export default function Home() {
   const handleUpload = async (file: File, category: string, collection: string) => {
     try {
       const result = await uploadMutation.mutateAsync({ file, category, collection });
-      setUploadSuccessMessage(`Uploaded ${file.name} (${result.chunks_created} chunks) to ${collection}`);
-      setUploadSuccess(true);
 
-      // Refresh collections after upload
-      refetchCollections();
+      // Show processing modal with WebSocket connection
+      setProcessingInfo({
+        websocketUrl: result.websocket_url,
+        fileName: file.name
+      });
+      setIsProcessingModalOpen(true);
+
+      // Close upload modal
+      setIsUploadModalOpen(false);
+
+      // Refresh collections after upload (when processing is complete)
+      // We'll handle this in the ProcessingModal onClose
     } catch (error) {
       console.error('Upload failed:', error);
     }
@@ -206,6 +217,17 @@ export default function Home() {
         error={uploadMutation.error?.message || null}
         success={uploadSuccess}
         successMessage={uploadSuccessMessage}
+      />
+
+      <ProcessingModal
+        isOpen={isProcessingModalOpen}
+        onClose={() => {
+          setIsProcessingModalOpen(false);
+          // Refresh collections after processing is complete
+          refetchCollections();
+        }}
+        websocketUrl={processingInfo.websocketUrl}
+        fileName={processingInfo.fileName}
       />
     </main>
   );
