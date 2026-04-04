@@ -21,8 +21,12 @@ Built with Python 3.11, FastAPI, and Sentence Transformers.
 - **🔄 Model Caching**: Automatic model download and caching
 - **📈 Health Monitoring**: Built-in health check endpoints
 - **📄 Collections API**: Dynamic collection listing from Qdrant
-- **📥 Document Upload**: Support for PDF and text file uploads
+- **📥 Document Upload**: Support for PDF and text file uploads with async processing
 - **🔧 Metadata Filtering**: Filter by title, domain, URL, and time range
+- **⚡ Async Processing**: Celery-based background task processing
+- **📦 MinIO Integration**: Object storage for original documents
+- **🌐 WebSocket Notifications**: Real-time document processing updates
+- **🔄 Task Management**: Task status tracking and monitoring
 
 ---
 
@@ -46,6 +50,8 @@ Built with Python 3.11, FastAPI, and Sentence Transformers.
 ├─────────────────────────────────────┤
 │  🔌 Connects to:                    │
 │    - Qdrant (6333)                 │
+│    - Redis (6379)                  │
+│    - MinIO (9000)                  │
 │    - OpenAI API (for rewriting)    │
 └─────────────────────────────────────┘
 ```
@@ -59,6 +65,8 @@ Built with Python 3.11, FastAPI, and Sentence Transformers.
 - Python 3.11+
 - uv package manager
 - Qdrant running (see [deployments/docker-compose.yaml](../../deployments/docker-compose.yaml))
+- Redis running (for Celery task queue)
+- MinIO running (for document storage)
 
 ### Installation
 
@@ -83,16 +91,26 @@ MODEL_CACHE_DIR=./models
 OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_API_BASE=https://api.deepseek.com/v1
 LLM_MODEL_NAME=deepseek-chat
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=lumina-documents
 ```
 
 ### Run the Service
 
 ```bash
-# Development mode with auto-reload
+# Start the API service
 uv run python -m lumina_brain.main
 
 # Or with uvicorn directly
 uv run uvicorn lumina_brain.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Start Celery worker for async processing
+uv run celery -A lumina_brain.celery_app worker --loglevel=info --concurrency=4
 ```
 
 Access the service:
@@ -148,24 +166,27 @@ curl -X POST http://localhost:8000/ingest \
 
 ### 📤 `POST /upload`
 
-Upload and ingest documents (PDF, text files).
+Upload and ingest documents (PDF, text files) with async processing.
 
 **Request:**
 ```bash
 curl -X POST http://localhost:8000/upload \
-  -F "file=@document.pdf"
+  -F "file=@document.pdf" \
+  -F "category=technical" \
+  -F "collection=documents"
 ```
 
 **Response:**
 ```json
 {
-  "status": "success",
-  "documents": [
-    {
-      "title": "Document Title",
-      "point_id": "550e8400-e29b-41d4-a716-446655440000"
-    }
-  ]
+  "task_id": "550e8400-e29b-41d4-a716-446655440000",
+  "file_id": "b2e1bfd0-921d-7586-9436-589beae56676",
+  "file_name": "document.pdf",
+  "category": "technical",
+  "collection": "documents",
+  "status": "pending",
+  "websocket_url": "ws://localhost:8000/ws/b2e1bfd0-921d-7586-9436-589beae56676",
+  "message": "Document uploaded successfully. Processing in background."
 }
 ```
 
@@ -245,6 +266,74 @@ curl -X POST http://localhost:8000/chat \
 
 ---
 
+### 📋 `GET /upload/tasks/{task_id}`
+
+Get status of an upload task.
+
+**Response:**
+```json
+{
+  "task_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "completed",
+  "progress": 100,
+  "total": 100,
+  "current_step": "Completed",
+  "result": {
+    "file_id": "b2e1bfd0-921d-7586-9436-589beae56676",
+    "filename": "document.pdf",
+    "chunks_created": 25,
+    "status": "success"
+  }
+}
+```
+
+---
+
+### 🔗 `GET /documents/{file_id}/preview-url`
+
+Generate temporary preview URL for a document.
+
+**Response:**
+```json
+{
+  "preview_url": "https://minio.local:9000/lumina-documents/b2e1bfd0-921d-7586-9436-589beae56676/raw/document.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260404%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260404T100000Z&X-Amz-Expires=600&X-Amz-SignedHeaders=host&X-Amz-Signature=...",
+  "expires_in": 600
+}
+```
+
+---
+
+### 🗑️ `DELETE /documents/{file_id}`
+
+Delete a document and its embeddings.
+
+**Request:**
+```bash
+curl -X DELETE "http://localhost:8000/documents/b2e1bfd0-921d-7586-9436-589beae56676?collection=documents&filename=document.pdf"
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Document deleted successfully"
+}
+```
+
+---
+
+### 🌐 `WebSocket /ws/{file_id}`
+
+Real-time document processing notifications.
+
+**Messages:**
+- `connected`: Connection established
+- `processing`: Processing in progress with progress updates
+- `completed`: Processing completed successfully
+- `failed`: Processing failed with error
+
+---
+
 ### 💬 `POST /chat/stream`
 
 Streaming conversational interface for real-time responses.
@@ -272,15 +361,23 @@ lumina-brain/
 │   └── lumina_brain/
 │       ├── __init__.py            # Version information
 │       ├── main.py                # FastAPI application
+│       ├── celery_app.py          # Celery application configuration
 │       ├── api/                   # API endpoints
 │       │   ├── router.py          # API router
 │       │   └── endpoints/         # Endpoint handlers
+│       │       ├── upload.py      # File upload endpoint
+│       │       ├── websocket.py   # WebSocket endpoint
+│       │       ├── documents.py   # Document management endpoints
 │       ├── core/                  # Core services
 │       │   ├── services/          # Service implementations
+│       │   │   ├── minio.py       # MinIO object storage service
+│       │   │   ├── websocket_manager.py  # WebSocket connection manager
 │       │   ├── vector_service.py  # Vector search service
 │       │   ├── query_rewriter.py  # Query rewriting service
 │       │   ├── reranker.py        # Relevance reranking service
 │       │   └── llm_service.py     # LLM service
+│       ├── tasks/                 # Celery tasks
+│       │   └── document_tasks.py  # Document processing tasks
 │       ├── schemas/               # Data models
 │       └── config/                # Configuration
 ├── tests/                         # Test directory
@@ -307,6 +404,13 @@ lumina-brain/
 | `OPENAI_API_KEY` | ✅ | - | OpenAI API key for query rewriting |
 | `OPENAI_API_BASE` | ❌ | `https://api.openai.com/v1` | Custom OpenAI API endpoint |
 | `LLM_MODEL_NAME` | ❌ | `gpt-3.5-turbo` | LLM model for query rewriting |
+| `REDIS_HOST` | ✅ | `localhost` | Redis host for Celery |
+| `REDIS_PORT` | ✅ | `6379` | Redis port for Celery |
+| `REDIS_DB` | ❌ | `0` | Redis database for Celery |
+| `MINIO_ENDPOINT` | ✅ | `localhost:9000` | MinIO endpoint |
+| `MINIO_ACCESS_KEY` | ✅ | - | MinIO access key |
+| `MINIO_SECRET_KEY` | ✅ | - | MinIO secret key |
+| `MINIO_BUCKET` | ❌ | `lumina-documents` | MinIO bucket name |
 
 ### Model Configuration
 

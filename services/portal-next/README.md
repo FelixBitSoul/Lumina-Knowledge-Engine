@@ -15,6 +15,9 @@ Built with [Next.js 15](https://nextjs.org), [Tailwind CSS v4](https://tailwindc
 - **📱 Responsive Design**: Works seamlessly on desktop, tablet, and mobile
 - **🔌 API Integration**: Direct integration with Brain API
 - **♿ Accessibility**: ARIA-compliant components and keyboard navigation
+- **🌐 WebSocket Integration**: Real-time document processing notifications
+- **📋 Processing Modal**: Interactive progress tracking for document uploads
+- **🚀 Async Uploads**: Non-blocking file uploads with background processing
 
 ---
 
@@ -89,7 +92,18 @@ portal-next/
 │   │   ├── 📄 page.tsx        # Main search interface
 │   │   ├── 📄 layout.tsx      # Root layout with providers
 │   │   └── 📄 globals.css     # Tailwind CSS styles
-│   └── 📄 ...
+│   ├── 📁 components/         # UI components
+│   │   ├── UploadModal.tsx    # File upload modal
+│   │   ├── ProcessingModal.tsx # Document processing progress modal
+│   │   └── ui/                # Shadcn UI components
+│   ├── 📁 hooks/               # Custom hooks
+│   │   └── useUpload.ts        # Upload and WebSocket hooks
+│   ├── 📁 services/            # API services
+│   │   └── uploadAPI.ts        # Upload API service
+│   ├── 📁 types/               # TypeScript types
+│   │   └── index.ts            # Type definitions
+│   └── 📁 store/               # State management
+│       └── searchStore.ts       # Search state store
 ├── 📄 package.json            # Dependencies & scripts
 ├── 📄 next.config.ts          # Next.js configuration
 ├── 📄 tailwind.config.ts      # Tailwind CSS config
@@ -101,6 +115,11 @@ portal-next/
 - **`src/app/page.tsx`**: Main search interface with API integration
 - **`src/app/layout.tsx`**: Root layout with theme provider
 - **`src/app/globals.css`**: Tailwind CSS custom styles
+- **`src/components/UploadModal.tsx`**: File upload modal with progress tracking
+- **`src/components/ProcessingModal.tsx`**: Real-time document processing progress modal
+- **`src/hooks/useUpload.ts`**: Custom hook for upload and WebSocket handling
+- **`src/services/uploadAPI.ts`**: Upload API service integration
+- **`src/types/index.ts`**: TypeScript type definitions for upload and WebSocket
 - **`next.config.ts`**: Next.js and build configuration
 
 ---
@@ -112,6 +131,11 @@ The Portal connects to the Brain API for:
 - **Semantic Search**: `GET /search?query={query}&page_size={size}&page={num}`
 - **Get Collections**: `GET /collections`
 - **Health Check**: `GET /health`
+- **File Upload**: `POST /upload` with file multipart/form-data
+- **Task Status**: `GET /upload/tasks/{task_id}`
+- **Document Preview**: `GET /documents/{file_id}/preview-url`
+- **Document Delete**: `DELETE /documents/{file_id}`
+- **WebSocket Notifications**: `WebSocket /ws/{file_id}`
 
 ### Search Flow
 
