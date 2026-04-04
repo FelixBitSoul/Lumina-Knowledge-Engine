@@ -7,7 +7,7 @@ class APISettings(BaseSettings):
     """API configuration settings"""
     host: str = "0.0.0.0"
     port: int = 8000
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -20,12 +20,12 @@ class CORSSettings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = True
         extra = "allow"
-        
+
         @classmethod
         def parse_env_var(cls, field_name, raw_val):
             if field_name == "origins" and isinstance(raw_val, str):
@@ -38,7 +38,7 @@ class ModelSettings(BaseSettings):
     """Model configuration settings"""
     name: str = "all-MiniLM-L6-v2"
     cache_dir: str = "./models"
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -50,7 +50,7 @@ class QdrantSettings(BaseSettings):
     host: str = "localhost"
     port: int = 6333
     collection: str = "knowledge_base"
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -60,7 +60,46 @@ class QdrantSettings(BaseSettings):
 class LogSettings(BaseSettings):
     """Log configuration settings"""
     level: str = "info"
-    
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "allow"
+
+
+class RedisSettings(BaseSettings):
+    """Redis configuration settings"""
+    host: str = "localhost"
+    port: int = 6379
+    db: int = 0
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "allow"
+
+
+class MinIOSettings(BaseSettings):
+    """MinIO configuration settings"""
+    endpoint: str = "localhost:9000"
+    access_key: str = "minioadmin"
+    secret_key: str = "minioadmin"
+    bucket: str = "lumina-documents"
+    secure: bool = False
+    presigned_expiry: int = 600
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "allow"
+
+
+class CelerySettings(BaseSettings):
+    """Celery configuration settings"""
+    broker_url: str = "redis://localhost:6379/0"
+    result_backend: str = "redis://localhost:6379/1"
+    worker_concurrency: int = 4
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -75,6 +114,9 @@ class Settings(BaseSettings):
     model: ModelSettings = ModelSettings()
     qdrant: QdrantSettings = QdrantSettings()
     log: LogSettings = LogSettings()
+    redis: RedisSettings = RedisSettings()
+    minio: MinIOSettings = MinIOSettings()
+    celery: CelerySettings = CelerySettings()
 
     class Config:
         env_file = ".env"
@@ -86,7 +128,7 @@ def get_settings() -> Settings:
     """Get application settings, loaded from files and environment variables."""
     # Load configuration from files and environment variables
     config_dict = load_config()
-    
+
     # Create settings object from the loaded configuration
     return Settings(
         api=APISettings(**config_dict.get("api", {})),
@@ -94,6 +136,9 @@ def get_settings() -> Settings:
         model=ModelSettings(**config_dict.get("model", {})),
         qdrant=QdrantSettings(**config_dict.get("qdrant", {})),
         log=LogSettings(**config_dict.get("log", {})),
+        redis=RedisSettings(**config_dict.get("redis", {})),
+        minio=MinIOSettings(**config_dict.get("minio", {})),
+        celery=CelerySettings(**config_dict.get("celery", {})),
     )
 
 

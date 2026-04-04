@@ -1,5 +1,7 @@
+import { UploadResponse, TaskStatus } from '../types';
+
 export const uploadAPI = {
-  uploadDocument: async (file: File, category: string, collection?: string) => {
+  uploadDocument: async (file: File, category: string, collection?: string): Promise<UploadResponse> => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('category', category);
@@ -15,6 +17,28 @@ export const uploadAPI = {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.detail || 'Upload failed');
+    }
+
+    return response.json();
+  },
+
+  getTaskStatus: async (taskId: string): Promise<TaskStatus> => {
+    const response = await fetch(`http://localhost:8000/upload/tasks/${taskId}`);
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to get task status');
+    }
+
+    return response.json();
+  },
+
+  getPreviewUrl: async (fileId: string, filename: string, expiry: number = 600): Promise<{ preview_url: string; expires_in: number; expires_at: string }> => {
+    const response = await fetch(`http://localhost:8000/documents/${fileId}/preview-url?filename=${encodeURIComponent(filename)}&expiry=${expiry}`);
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to get preview URL');
     }
 
     return response.json();
@@ -41,13 +65,4 @@ export const validateFile = (file: File): { valid: boolean; error?: string } => 
   }
 
   return { valid: true };
-};
-
-export type UploadResponse = {
-  document_id: string;
-  chunks_created: number;
-  file_name: string;
-  category: string;
-  content_hash: string;
-  collection: string;
 };

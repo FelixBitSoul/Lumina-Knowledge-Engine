@@ -25,3 +25,24 @@ qdrant:
 # Log settings
 log:
   level: "info"
+
+# Redis settings
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+
+# MinIO settings
+minio:
+  endpoint: "localhost:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  bucket: "lumina-documents"
+  secure: false
+  presigned_expiry: 600
+
+# Celery settings
+celery:
+  broker_url: "redis://localhost:6379/0"
+  result_backend: "redis://localhost:6379/1"
+  worker_concurrency: 4

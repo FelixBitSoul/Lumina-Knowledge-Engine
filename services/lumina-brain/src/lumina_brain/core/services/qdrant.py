@@ -293,8 +293,186 @@ class QdrantService:
                 "domain": payload.get("domain"),
                 "content": payload.get("content") or "",
                 "updated_at": payload.get("updated_at"),
+                "file_id": payload.get("file_id"),
+                "file_name": payload.get("file_name"),
+                "category": payload.get("category"),
             })
         return results
+
+    def upsert_points(self, points: list, collection_name: str = None):
+        """Upsert multiple points to Qdrant
+
+        Args:
+            points: List of points to upsert
+            collection_name: Qdrant collection name
+        """
+        target_collection = collection_name or settings.qdrant.collection
+        self._ensure_collection(target_collection)
+
+        # Convert points to PointStruct objects
+        point_structs = []
+        for point in points:
+            point_structs.append(PointStruct(
+                id=point["id"],
+                vector=point["vector"],
+                payload=point["payload"]
+            ))
+
+        # Upsert points to Qdrant
+        self.client.upsert(
+            collection_name=target_collection,
+            points=point_structs
+        )
+
+    def delete_by_file_id(self, file_id: str, collection_name: str = None):
+        """Delete all points with specified file_id
+
+        Args:
+            file_id: Document ID
+            collection_name: Qdrant collection name
+        """
+        target_collection = collection_name or settings.qdrant.collection
+        self._ensure_collection(target_collection)
+
+        # Delete points with matching file_id
+        self.client.delete(
+            collection_name=target_collection,
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="file_id",
+                        match=MatchValue(value=file_id)
+                    )
+                ]
+            )
+        )
+
+    def search_within_file(self, query_vector: list, file_id: str, limit: int = 10, collection_name: str = None):
+        """Search within a specific file
+
+        Args:
+            query_vector: Query vector
+            file_id: Document ID
+            limit: Number of results to return
+            collection_name: Qdrant collection name
+
+        Returns:
+            list: Search results
+        """
+        target_collection = collection_name or settings.qdrant.collection
+        self._ensure_collection(target_collection)
+
+        # Search with file_id filter
+        search_result = self.client.query_points(
+            collection_name=target_collection,
+            query=query_vector,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+            query_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="file_id",
+                        match=MatchValue(value=file_id)
+                    )
+                ]
+            )
+        )
+
+        return self._parse_search_result(search_result)
+
+    def check_document_exists(self, file_id: str, collection_name: str = None) -> bool:
+        """Check if document exists in Qdrant
+
+        Args:
+            file_id: Document ID
+            collection_name: Qdrant collection name
+
+        Returns:
+            bool: True if document exists, False otherwise
+        """
+        target_collection = collection_name or settings.qdrant.collection
+        self._ensure_collection(target_collection)
+
+        # Search for any point with matching file_id
+        search_result = self.client.query_points(
+            collection_name=target_collection,
+            query=[0.0] * 384,  # Dummy vector
+            limit=1,
+            with_payload=True,
+            with_vectors=False,
+            query_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="file_id",
+                        match=MatchValue(value=file_id)
+                    )
+                ]
+            )
+        )
+
+        return len(search_result.points) > 0
+
+    def _ensure_collection(self, collection_name: str):
+        """Create collection if it doesn't exist"""
+        try:
+            self.client.get_collection(collection_name=collection_name)
+        except Exception:
+            # Vector size 384 is specific to 'all-MiniLM-L6-v2'
+            self.client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+            )
+
+            # Create payload indexes for metadata fields
+            # Title - full-text search index
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="title",
+                field_schema="text"
+            )
+
+            # URL - keyword index for exact match
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="url",
+                field_schema="keyword"
+            )
+
+            # Domain - keyword index for exact match
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="domain",
+                field_schema="keyword"
+            )
+
+            # Updated_at - datetime index for time range filtering
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="updated_at",
+                field_schema="datetime"
+            )
+
+            # File ID - keyword index for fast filtering (new)
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="file_id",
+                field_schema="keyword"
+            )
+
+            # File name - keyword index for exact match (new)
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="file_name",
+                field_schema="keyword"
+            )
+
+            # Category - keyword index for exact match (new)
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="category",
+                field_schema="keyword"
+            )
 
 
 # Create global Qdrant service instance
