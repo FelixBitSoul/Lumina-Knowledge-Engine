@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 
 class ChatRequest(BaseModel):
@@ -15,3 +15,4 @@ class ChatResponse(BaseModel):
     content: str
     conversation_id: str
     timestamp: int
+    references: Optional[List[Dict[str, Any]]] = None

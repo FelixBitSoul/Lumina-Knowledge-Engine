@@ -531,6 +531,194 @@ curl -N -X POST http://localhost:8000/chat/stream \
 
 ---
 
+### 8. File Management API
+
+#### 8.1 List Files
+
+**Endpoint**: `GET /documents`
+
+**Purpose**: List files in a collection with pagination
+
+**Request**:
+```http
+GET /documents?collection=knowledge_base&limit=20&start_after=raw/collections/knowledge_base/docs/file1.pdf HTTP/1.1
+Host: localhost:8000
+```
+
+**Query Parameters**:
+```typescript
+interface ListFilesParams {
+  collection: string;       // Collection name (default: knowledge_base)
+  limit?: number;           // Maximum number of files to return (default: 20)
+  start_after?: string;     // Object name to start after (for pagination)
+}
+```
+
+**Response**:
+```json
+{
+  "collection": "knowledge_base",
+  "files": [
+    {
+      "file_id": "550e8400-e29b-41d4-a716-446655440000",
+      "filename": "Docker Installation Guide.pdf",
+      "size": 1024000,
+      "uploaded_at": "2026-03-29T10:30:00Z",
+      "type": "document",
+      "object_name": "raw/collections/knowledge_base/docs/550e8400-e29b-41d4-a716-446655440000.pdf"
+    },
+    {
+      "file_id": "12345678-1234-1234-1234-123456789012",
+      "filename": "React Documentation",
+      "size": 512000,
+      "uploaded_at": "2026-03-28T15:45:00Z",
+      "type": "web",
+      "url": "https://react.dev/learn",
+      "object_name": "raw/collections/knowledge_base/web/12345678-1234-1234-1234-123456789012.json"
+    }
+  ],
+  "count": 2,
+  "next_marker": "raw/collections/knowledge_base/web/12345678-1234-1234-1234-123456789012.json"
+}
+```
+
+**Response Schema**:
+```typescript
+interface ListFilesResponse {
+  collection: string;       // Collection name
+  files: File[];           // List of files
+  count: number;           // Number of files returned
+  next_marker?: string;     // Next marker for pagination
+}
+
+interface File {
+  file_id: string;          // File ID
+  filename: string;         // Original filename
+  size: number;             // File size in bytes
+  uploaded_at: string;      // Upload timestamp (ISO format)
+  type: "document" | "web"; // File type
+  url?: string;            // Web URL (for web type)
+  object_name: string;      // MinIO object name
+}
+```
+
+**Status Codes**:
+- `200 OK`: Files listed successfully
+- `500 Internal Server Error`: Processing error
+
+**Example**:
+```bash
+curl -X GET "http://localhost:8000/documents?collection=knowledge_base&limit=20"
+```
+
+#### 8.2 Delete File
+
+**Endpoint**: `DELETE /documents/{file_id}`
+
+**Purpose**: Delete document from Qdrant and MinIO
+
+**Request**:
+```http
+DELETE /documents/550e8400-e29b-41d4-a716-446655440000?collection=knowledge_base&filename=Docker%20Installation%20Guide.pdf HTTP/1.1
+Host: localhost:8000
+```
+
+**Path Parameters**:
+- `file_id`: Document ID (based on content hash)
+
+**Query Parameters**:
+- `collection`: Qdrant collection name (default: knowledge_base)
+- `filename`: Original filename (required for MinIO deletion)
+
+**Response**:
+```json
+{
+  "file_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "deleted",
+  "message": "Document deleted successfully"
+}
+```
+
+**Response Schema**:
+```typescript
+interface DeleteFileResponse {
+  file_id: string;          // Deleted file ID
+  status: "deleted";        // Status
+  message: string;          // Success message
+}
+```
+
+**Status Codes**:
+- `200 OK`: File deleted successfully
+- `500 Internal Server Error`: Processing error
+
+**Example**:
+```bash
+curl -X DELETE "http://localhost:8000/documents/550e8400-e29b-41d4-a716-446655440000?collection=knowledge_base&filename=Docker%20Installation%20Guide.pdf"
+```
+
+---
+
+### 9. Collections Management API
+
+#### 9.1 Create Collection
+
+**Endpoint**: `POST /collections`
+
+**Purpose**: Create a new collection in Qdrant
+
+**Request**:
+```http
+POST /collections HTTP/1.1
+Host: localhost:8000
+Content-Type: application/json
+
+{
+  "name": "tech_docs",
+  "description": "Technical documentation collection"
+}
+```
+
+**Request Schema**:
+```typescript
+interface CreateCollectionRequest {
+  name: string;            // Collection name
+  description: string;      // Collection description
+}
+```
+
+**Response**:
+```json
+{
+  "collection": "tech_docs",
+  "message": "Collection created successfully"
+}
+```
+
+**Response Schema**:
+```typescript
+interface CreateCollectionResponse {
+  collection: string;       // Created collection name
+  message: string;          // Success message
+}
+```
+
+**Status Codes**:
+- `200 OK`: Collection created successfully
+- `500 Internal Server Error`: Processing error
+
+**Example**:
+```bash
+curl -X POST http://localhost:8000/collections \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "tech_docs",
+    "description": "Technical documentation collection"
+  }'
+```
+
+---
+
 ## 🔧 Configuration
 
 ### Environment Variables

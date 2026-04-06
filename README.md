@@ -108,7 +108,7 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 ### Detailed Dependencies
 - **Crawler (Go)**: Colly v2.2.0, go-readability, goquery, godotenv
 - **Brain API (Python)**: FastAPI, uvicorn, sentence-transformers, qdrant-client, pydantic, openai, PyMuPDF, celery, redis, minio
-- **Portal (Next.js)**: React 19, @tanstack/react-query, zustand, shadcn, tailwind-merge, websocket
+- **Portal (Next.js)**: React 19, @tanstack/react-query, zustand, shadcn, tailwind-merge, class-variance-authority, clsx, next-themes, radix-ui, tw-animate-css, lucide-react
 - **Infrastructure**: Redis 7+, MinIO, Celery 5+
 
 ---

@@ -4,6 +4,7 @@ from lumina_brain.core.services.document import document_service
 from lumina_brain.core.services.embedding import embedding_service
 from lumina_brain.core.services.qdrant import qdrant_service
 from lumina_brain.core.services.notification_service import notification_service
+from lumina_brain.core.services.cache import cache_service
 from lumina_brain.config.settings import settings
 import hashlib
 
@@ -152,6 +153,72 @@ def process_document(self, file_id: str, collection: str = "knowledge_base", sou
             "collection": collection
         })
         logger.info(f"[TASK] Completion notification sent")
+
+        # Clear collection cache to ensure search results reflect new data
+        logger.info(f"[TASK] Step 6.5/7: Clearing collection cache for {collection}...")
+        cache_service.clear_collection_cache(collection)
+        logger.info(f"[TASK] Collection cache cleared")
+
+        # 更新集合统计缓存
+        logger.info(f"[TASK] Step 6.6/7: Updating collection stats cache for {collection}...")
+        try:
+            from lumina_brain.core.services.qdrant import qdrant_service
+            from lumina_brain.core.services.minio import minio_service
+
+            # 生成缓存键
+            cache_key = f"lumina:stats:{collection}"
+
+            # 初始化统计信息
+            stats = {
+                "collection": collection,
+                "files_count": 0,
+                "total_vectors": 0,
+                "total_chunks": 0,  # Each vector represents a chunk
+                "vector_size": 384,  # Fixed for all-MiniLM-L6-v2 model
+                "distance_function": "cosine"
+            }
+
+            # 统计 MinIO 中的文件数量
+            try:
+                # 构建 MinIO 路径前缀
+                prefix = f"raw/collections/{collection}/"
+
+                # 列出 MinIO 中指定前缀的所有对象
+                objects = minio_service.client.list_objects(
+                    bucket_name=minio_service.bucket,
+                    prefix=prefix,
+                    recursive=True
+                )
+
+                # 计算文件数量
+                file_count = 0
+                for _ in objects:
+                    file_count += 1
+
+                stats["files_count"] = file_count
+            except Exception as e:
+                print(f"Error counting files in MinIO: {e}")
+                # 继续执行，不影响其他统计
+
+            # 获取 Qdrant 中的向量数量
+            try:
+                # Get collection information
+                collection_info = qdrant_service.client.get_collection(collection_name=collection)
+
+                # Get total vectors (points) in the collection
+                total_vectors = collection_info.points_count
+
+                stats["total_vectors"] = total_vectors
+                stats["total_chunks"] = total_vectors  # Each vector represents a chunk
+            except Exception as e:
+                print(f"Error getting collection info from Qdrant: {e}")
+                # 继续执行，返回默认值
+
+            # 缓存统计结果，过期时间 60 秒
+            cache_service.set(cache_key, stats, ttl=60)
+            logger.info(f"[TASK] Collection stats cache updated")
+        except Exception as e:
+            logger.error(f"[TASK] Failed to update collection stats cache: {e}")
 
         logger.info(f"[TASK] Step 7/7: Updating task status to SUCCESS...")
         self.update_state(state="SUCCESS", meta={

@@ -1,28 +1,32 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useTheme } from 'next-themes';
-import { Sun, Moon, Cpu, MessageSquare, Search, Upload as UploadIcon } from 'lucide-react';
+import { Cpu, MessageSquare, Search, Database, Upload as UploadIcon, Info, ChevronDown, Link } from 'lucide-react';
 import CollectionList from '../components/CollectionList';
 import SearchBar from '../components/SearchBar';
 import SearchResults from '../components/SearchResults';
 import ChatComponent from '../components/Chat/ChatComponent';
 import UploadModal from '../components/UploadModal';
-import ProcessingModal from '../components/ProcessingModal';
+import FileManager from '../components/FileManager';
+import Inspector from '../components/Inspector';
+import UploadSheet from '../components/UploadSheet';
+import CrawlSheet from '../components/CrawlSheet';
+import ThemeToggle from '../components/ThemeToggle';
 import { useSearchStore } from '../store/searchStore';
-import { useSearch, useCollections } from '../services/api';
+import { useUIStore } from '../store/uiStore';
+import { useSearch, useCollections, collectionsAPI } from '../services/api';
 import { useUpload } from '../hooks/useUpload';
 import { SearchResultItem } from '../types';
 
 export default function Home() {
-  const { theme, setTheme } = useTheme();
   const { query, selectedCollection, filters, currentPage, pageSize, setQuery, setSelectedCollection, setPage, setPageSize } = useSearchStore();
-  const [activeTab, setActiveTab] = useState<'search' | 'chat'>('search');
+  const { activeView, setActiveView, activeItem, setActiveItem, isInspectorOpen, toggleInspector } = useUIStore();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [isProcessingModalOpen, setIsProcessingModalOpen] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState('');
-  const [processingInfo, setProcessingInfo] = useState<{ websocketUrl: string; fileName: string }>({ websocketUrl: '', fileName: '' });
+  const [isUploadSheetOpen, setIsUploadSheetOpen] = useState(false);
+  const [isCrawlSheetOpen, setIsCrawlSheetOpen] = useState(false);
+  const [isSplitButtonOpen, setIsSplitButtonOpen] = useState(false);
 
   const { data: collectionsData, isLoading: collectionsLoading, refetch: refetchCollections } = useCollections();
 
@@ -37,6 +41,25 @@ export default function Home() {
     }
   }, [collections, selectedCollection, setSelectedCollection]);
 
+  // 监听来自 FileManager 的上传和爬虫事件
+  useEffect(() => {
+    const handleOpenUploadSheet = () => {
+      setIsUploadSheetOpen(true);
+    };
+
+    const handleOpenCrawlSheet = () => {
+      setIsCrawlSheetOpen(true);
+    };
+
+    window.addEventListener('open-upload-sheet', handleOpenUploadSheet);
+    window.addEventListener('open-crawl-sheet', handleOpenCrawlSheet);
+
+    return () => {
+      window.removeEventListener('open-upload-sheet', handleOpenUploadSheet);
+      window.removeEventListener('open-crawl-sheet', handleOpenCrawlSheet);
+    };
+  }, []);
+
   const { data, isLoading, error } = useSearch(query, selectedCollection, filters, pageSize, currentPage);
   const results: SearchResultItem[] = data?.results || [];
 
@@ -44,6 +67,18 @@ export default function Home() {
   const hasPrevPage = currentPage > 1;
 
   const uploadMutation = useUpload();
+
+  // 处理新增集合
+  const handleAddCollection = async (name: string, description: string) => {
+    try {
+      await collectionsAPI.createCollection(name, description);
+      // 刷新集合列表
+      refetchCollections();
+    } catch (error) {
+      console.error('Failed to create collection:', error);
+      alert('Failed to create collection. Please try again.');
+    }
+  };
 
   const handleSearch = (searchQuery: string) => {
     setQuery(searchQuery);
@@ -54,181 +89,197 @@ export default function Home() {
     try {
       const result = await uploadMutation.mutateAsync({ file, category, collection });
 
-      // Show processing modal with WebSocket connection
-      setProcessingInfo({
-        websocketUrl: result.websocket_url,
-        fileName: file.name
-      });
-      setIsProcessingModalOpen(true);
-
       // Close upload modal
       setIsUploadModalOpen(false);
+      setUploadSuccess(true);
+      setUploadSuccessMessage('File upload initiated successfully');
 
-      // Refresh collections after upload (when processing is complete)
-      // We'll handle this in the ProcessingModal onClose
+      // Refresh collections after upload
+      setTimeout(() => {
+        refetchCollections();
+      }, 2000);
     } catch (error) {
       console.error('Upload failed:', error);
     }
   };
 
+  const handleCollectionSelect = (collection: string) => {
+    setSelectedCollection(collection);
+  };
+
+  const handleCollectionDetails = (collection: string) => {
+    setActiveItem({
+      type: 'collection',
+      id: collection,
+      data: { name: collection },
+    });
+    toggleInspector();
+  };
+
+  const handleResultClick = (result: SearchResultItem) => {
+    setActiveItem({
+      type: 'chunk',
+      id: `${result.url}-${result.content.substring(0, 50)}`,
+      data: {
+        ...result,
+        source_file_id: '1', // 实际应该从 API 返回
+        source_file_name: result.title,
+      },
+    });
+    toggleInspector();
+  };
+
   return (
-    <main className="min-h-screen transition-colors duration-500 bg-slate-50 dark:bg-[#0B0F1A] text-slate-900 dark:text-slate-200 py-8 px-4 md:px-6">
-      <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
+    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-[#0B0F1A] text-slate-900 dark:text-slate-200">
+      {/* Left Sidebar */}
+      <div className="w-[260px] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161B22] flex flex-col">
+        <div className="p-6 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-            <Cpu className="text-blue-600 dark:text-blue-400" size={28} />
+            <Cpu className="text-blue-600 dark:text-blue-400" size={24} />
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-300">
               LUMINA
             </span>
           </div>
-
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2 rounded-full bg-white dark:bg-[#161B22] border border-slate-200 dark:border-slate-800 hover:shadow-lg transition-all active:scale-90"
-            aria-label="Toggle Theme"
-          >
-            {theme === 'dark' ? (
-              <Sun className="text-yellow-400" size={20} />
-            ) : (
-              <Moon className="text-blue-600" size={20} />
-            )}
-          </button>
-        </header>
-
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-black mb-4 tracking-tight text-slate-900 dark:text-white">
-            Knowledge Engine
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-lg max-w-xl mx-auto">
-            Semantic search powered by Go crawlers and Python vector embeddings.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-1">
-            <div className="sticky top-8 bg-white dark:bg-[#161B22] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              {collectionsLoading ? (
-                <div className="space-y-3">
-                  <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-3/4 animate-pulse"></div>
-                  <div className="h-12 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
-                  <div className="h-12 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
-                </div>
-              ) : collections.length > 0 ? (
-                <>
-                  <CollectionList
-                    collections={collections}
-                    selectedCollection={selectedCollection}
-                    onSelectCollection={setSelectedCollection}
-                  />
-                  <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-                    <button
-                      onClick={() => setIsUploadModalOpen(true)}
-                      className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                    >
-                      <UploadIcon className="h-4 w-4" />
-                      <span>Upload Document</span>
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center text-slate-500 dark:text-slate-400">
-                  <p className="text-sm">No collections available</p>
-                  <button
-                    onClick={() => setIsUploadModalOpen(true)}
-                    className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                  >
-                    <UploadIcon className="h-4 w-4" />
-                    <span>Upload Document</span>
-                  </button>
-                </div>
-              )}
+        <div className="flex-1 overflow-auto p-6">
+          {collectionsLoading ? (
+            <div className="space-y-3">
+              <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-3/4 animate-pulse"></div>
+              <div className="h-12 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
+              <div className="h-12 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
             </div>
-          </div>
-
-          <div className="lg:col-span-3">
-            <div className="bg-white dark:bg-[#161B22] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mb-8 overflow-hidden">
-              <div className="flex border-b border-slate-200 dark:border-slate-800">
-                <button
-                  onClick={() => setActiveTab('search')}
-                  className={`flex-1 py-4 px-6 flex items-center justify-center gap-2 ${activeTab === 'search' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                >
-                  <Search size={18} />
-                  <span className="font-medium">Search</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('chat')}
-                  className={`flex-1 py-4 px-6 flex items-center justify-center gap-2 ${activeTab === 'chat' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                >
-                  <MessageSquare size={18} />
-                  <span className="font-medium">Chat</span>
-                </button>
-              </div>
-
-              <div className="p-6">
-                {activeTab === 'search' ? (
-                  <>
-                    <div className="mb-8">
-                      <SearchBar onSearch={handleSearch} loading={isLoading} />
-                    </div>
-
-                    <SearchResults
-                      results={results}
-                      error={error?.message || null}
-                      loading={isLoading}
-                      query={query}
-                      currentPage={currentPage}
-                      pageSize={pageSize}
-                      hasNextPage={hasNextPage}
-                      hasPrevPage={hasPrevPage}
-                      onPageChange={setPage}
-                      onPageSizeChange={setPageSize}
-                    />
-                  </>
-                ) : (
-                  <ChatComponent />
-                )}
-              </div>
+          ) : collections.length > 0 ? (
+            <>
+              <CollectionList
+                collections={collections}
+                selectedCollection={selectedCollection}
+                onSelectCollection={handleCollectionSelect}
+                onSelectCollectionDetails={handleCollectionDetails}
+                onAddCollection={handleAddCollection}
+              />
+            </>
+          ) : (
+            <div className="text-center text-slate-500 dark:text-slate-400">
+              <p className="text-sm mb-4">No collections available</p>
             </div>
-          </div>
+          )}
         </div>
 
-        <footer className="mt-16 text-center border-t border-slate-200 dark:border-slate-800 pt-8 pb-12">
-          <div className="flex justify-center gap-6 text-xs font-mono text-slate-400 uppercase tracking-widest">
-            <span>Stack: Go 1.22</span>
-            <span>•</span>
-            <span>Python 3.11</span>
-            <span>•</span>
-            <span>Qdrant DB</span>
-            <span>•</span>
-            <span>Next.js 15</span>
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            Lumina Knowledge Engine
           </div>
-        </footer>
+          <ThemeToggle />
+        </div>
       </div>
 
-      <UploadModal
-        isOpen={isUploadModalOpen}
-        onClose={() => {
-          setIsUploadModalOpen(false);
-          setUploadSuccess(false);
-        }}
-        onUpload={handleUpload}
-        collections={collections}
-        isUploading={uploadMutation.isPending}
-        error={uploadMutation.error?.message || null}
-        success={uploadSuccess}
-        successMessage={uploadSuccessMessage}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161B22] flex items-center justify-between px-6">
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-semibold text-slate-900 dark:text-white">
+              {selectedCollection || 'Knowledge Engine'}
+            </h1>
+            {selectedCollection && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {collections.find(c => c.value === selectedCollection)?.label}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveView('conversation')}
+              className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
+                activeView === 'conversation'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                  : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <MessageSquare size={16} />
+              <span>Conversation</span>
+            </button>
+            <button
+              onClick={() => setActiveView('knowledge')}
+              className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
+                activeView === 'knowledge'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                  : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Database size={16} />
+              <span>Knowledge Base</span>
+            </button>
+
+
+
+            <button
+              onClick={toggleInspector}
+              className={`p-2 rounded-md transition-colors ${
+                isInspectorOpen
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                  : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+              aria-label="Toggle Inspector"
+            >
+              <Info size={16} />
+            </button>
+          </div>
+        </header>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-auto">
+          {activeView === 'conversation' ? (
+            <div className="p-6">
+              <div className="mb-8">
+                <SearchBar onSearch={handleSearch} loading={isLoading} />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-white dark:bg-[#161B22] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+                  <h2 className="text-lg font-semibold mb-4">Search Results</h2>
+                  <SearchResults
+                    results={results}
+                    error={error?.message || null}
+                    loading={isLoading}
+                    query={query}
+                    currentPage={currentPage}
+                    pageSize={pageSize}
+                    hasNextPage={hasNextPage}
+                    hasPrevPage={hasPrevPage}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                    onResultClick={handleResultClick}
+                  />
+                </div>
+                <div className="bg-white dark:bg-[#161B22] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+                  <h2 className="text-lg font-semibold mb-4">Chat</h2>
+                  <ChatComponent />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <FileManager />
+          )}
+        </div>
+      </div>
+
+      {/* Right Inspector */}
+      <Inspector />
+
+      {/* Upload Sheet */}
+      <UploadSheet
+        isOpen={isUploadSheetOpen}
+        onClose={() => setIsUploadSheetOpen(false)}
       />
 
-      <ProcessingModal
-        isOpen={isProcessingModalOpen}
-        onClose={() => {
-          setIsProcessingModalOpen(false);
-          // Refresh collections after processing is complete
-          refetchCollections();
-        }}
-        websocketUrl={processingInfo.websocketUrl}
-        fileName={processingInfo.fileName}
+      {/* Crawl Sheet */}
+      <CrawlSheet
+        isOpen={isCrawlSheetOpen}
+        onClose={() => setIsCrawlSheetOpen(false)}
       />
-    </main>
+    </div>
   );
 }

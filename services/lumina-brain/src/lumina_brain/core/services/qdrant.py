@@ -262,6 +262,22 @@ class QdrantService:
                 )
             )
 
+        if filters.get("category"):
+            must_conditions.append(
+                FieldCondition(
+                    key="category",
+                    match=MatchValue(value=filters["category"])
+                )
+            )
+
+        if filters.get("file_name"):
+            must_conditions.append(
+                FieldCondition(
+                    key="file_name",
+                    match=MatchValue(value=filters["file_name"])
+                )
+            )
+
         if filters.get("time_range"):
             time_filter = filters["time_range"]
             datetime_range_conditions = {}

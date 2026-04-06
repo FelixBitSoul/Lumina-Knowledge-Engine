@@ -2,6 +2,8 @@
 export interface SearchFilters {
   title?: string;
   domain?: string;
+  category?: string;
+  file_name?: string;
   start_time?: string;
   end_time?: string;
 }
@@ -72,4 +74,36 @@ export interface WebSocketMessage {
   chunks_created?: number;
   collection?: string;
   timestamp?: string;
+}
+
+// Collection-related types
+export interface CollectionDetails {
+  collection: string;
+  files_count: number;
+  total_vectors: number;
+  total_chunks: number;
+  vector_size: number;
+  distance_function: string;
+}
+
+// Chunk-related types
+export interface ChunkDetails {
+  chunk_id: string;
+  content: string;
+  score: number;
+  payload: Record<string, any>;
+  source_file: {
+    file_id: string;
+    file_name: string;
+    category: string;
+  };
+}
+
+// Chat-related types
+export interface ChatReference {
+  title: string;
+  url: string;
+  score: number;
+  file_name: string;
+  category: string;
 }

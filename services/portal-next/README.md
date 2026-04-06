@@ -18,6 +18,8 @@ Built with [Next.js 15](https://nextjs.org), [Tailwind CSS v4](https://tailwindc
 - **🌐 WebSocket Integration**: Real-time document processing notifications
 - **📋 Processing Modal**: Interactive progress tracking for document uploads
 - **🚀 Async Uploads**: Non-blocking file uploads with background processing
+- **📁 File Management**: File listing, pagination, and deletion functionality
+- **📄 Collection Management**: Create and manage vector collections
 
 ---
 
@@ -95,19 +97,50 @@ portal-next/
 │   ├── 📁 components/         # UI components
 │   │   ├── UploadModal.tsx    # File upload modal
 │   │   ├── ProcessingModal.tsx # Document processing progress modal
+│   │   ├── SearchBar.tsx      # Search input component
+│   │   ├── SearchResults.tsx  # Search results display
+│   │   ├── CollectionList.tsx # Collection selection
+│   │   ├── FileManager.tsx    # File management component
+│   │   ├── DocumentSidebar.tsx # Document sidebar
+│   │   ├── ThemeProvider.tsx  # Theme provider component
+│   │   ├── QueryClientProviderWrapper.tsx # React Query provider
+│   │   ├── Chat/              # Chat components
+│   │   │   ├── ChatComponent.tsx # Main chat interface
+│   │   │   ├── ChatInput.tsx  # Chat input component
+│   │   │   └── MessageBubble.tsx # Message bubble component
 │   │   └── ui/                # Shadcn UI components
+│   │       ├── badge.tsx      # Badge component
+│   │       ├── button.tsx     # Button component
+│   │       ├── card.tsx       # Card component
+│   │       ├── input.tsx      # Input component
+│   │       └── select.tsx     # Select component
 │   ├── 📁 hooks/               # Custom hooks
 │   │   └── useUpload.ts        # Upload and WebSocket hooks
 │   ├── 📁 services/            # API services
-│   │   └── uploadAPI.ts        # Upload API service
+│   │   ├── api.ts             # Search and collections API
+│   │   ├── uploadAPI.ts        # Upload API service
+│   │   └── chatAPI.ts          # Chat API service
 │   ├── 📁 types/               # TypeScript types
 │   │   └── index.ts            # Type definitions
-│   └── 📁 store/               # State management
-│       └── searchStore.ts       # Search state store
+│   ├── 📁 store/               # State management
+│   │   ├── searchStore.ts       # Search state store
+│   │   └── chatStore.ts         # Chat state store
+│   └── 📁 lib/                 # Utility functions
+│       └── utils.ts            # Common utility functions
 ├── 📄 package.json            # Dependencies & scripts
 ├── 📄 next.config.ts          # Next.js configuration
 ├── 📄 tailwind.config.ts      # Tailwind CSS config
-└── 📄 tsconfig.json           # TypeScript config
+├── 📄 tsconfig.json           # TypeScript config
+├── 📄 postcss.config.mjs      # PostCSS configuration
+├── 📄 eslint.config.mjs       # ESLint configuration
+├── 📄 components.json         # Shadcn UI configuration
+├── 📁 public/                 # Static assets
+│   ├── next.svg               # Next.js logo
+│   ├── file.svg               # File icon
+│   ├── globe.svg              # Globe icon
+│   ├── vercel.svg             # Vercel logo
+│   └── window.svg             # Window icon
+└── 📄 .gitignore              # Git ignore file
 ```
 
 ### Key Files
@@ -117,9 +150,19 @@ portal-next/
 - **`src/app/globals.css`**: Tailwind CSS custom styles
 - **`src/components/UploadModal.tsx`**: File upload modal with progress tracking
 - **`src/components/ProcessingModal.tsx`**: Real-time document processing progress modal
+- **`src/components/SearchBar.tsx`**: Search input component with debounce
+- **`src/components/SearchResults.tsx`**: Search results display with pagination
+- **`src/components/CollectionList.tsx`**: Collection selection component
+- **`src/components/FileManager.tsx`**: File management component with pagination
+- **`src/components/Chat/ChatComponent.tsx`**: Main chat interface
 - **`src/hooks/useUpload.ts`**: Custom hook for upload and WebSocket handling
+- **`src/services/api.ts`**: Search and collections API integration
 - **`src/services/uploadAPI.ts`**: Upload API service integration
-- **`src/types/index.ts`**: TypeScript type definitions for upload and WebSocket
+- **`src/services/chatAPI.ts`**: Chat API service integration
+- **`src/store/searchStore.ts`**: Search state management
+- **`src/store/chatStore.ts`**: Chat state management
+- **`src/types/index.ts`**: TypeScript type definitions
+- **`src/lib/utils.ts`**: Common utility functions
 - **`next.config.ts`**: Next.js and build configuration
 
 ---
@@ -128,14 +171,17 @@ portal-next/
 
 The Portal connects to the Brain API for:
 
-- **Semantic Search**: `GET /search?query={query}&page_size={size}&page={num}`
+- **Semantic Search**: `GET /search?query={query}&page_size={size}&page={num}&collection={collection}&title={title}&domain={domain}&start_time={start_time}&end_time={end_time}`
 - **Get Collections**: `GET /collections`
+- **Create Collection**: `POST /collections` with name and description
 - **Health Check**: `GET /health`
-- **File Upload**: `POST /upload` with file multipart/form-data
+- **File Upload**: `POST /upload` with file multipart/form-data (file, category, collection)
 - **Task Status**: `GET /upload/tasks/{task_id}`
-- **Document Preview**: `GET /documents/{file_id}/preview-url`
-- **Document Delete**: `DELETE /documents/{file_id}`
+- **List Files**: `GET /documents?collection={collection}&limit={limit}&start_after={marker}`
+- **Document Preview**: `GET /documents/{file_id}/preview-url?filename={filename}&expiry={expiry}`
+- **Document Delete**: `DELETE /documents/{file_id}?collection={collection}&filename={filename}`
 - **WebSocket Notifications**: `WebSocket /ws/{file_id}`
+- **Chat API**: `POST /chat` with message and context
 
 ### Search Flow
 
@@ -148,23 +194,31 @@ User Input ──▶ Portal ──▶ Brain API ──▶ Qdrant
 ### TypeScript Types
 
 ```typescript
-interface SearchFilters {
+// Search-related types
+export interface SearchFilters {
   title?: string;      // Filter by title
   domain?: string;     // Filter by domain
   start_time?: string; // Filter by start time (ISO format)
   end_time?: string;   // Filter by end time (ISO format)
 }
 
-interface SearchResult {
+export interface SearchParams {
+  query: string;
+  collection?: string;
+  filters?: SearchFilters;
+  limit?: number;
+}
+
+export interface SearchResultItem {
   score: number;       // Relevance score (0-1)
   title: string;       // Document title
   url: string;         // Source URL
   domain: string;      // Document domain
-  content: string;      // Content preview
-  updated_at: string;   // Last update time (ISO format)
+  content: string;     // Content preview
+  updated_at: string;  // Last update time (ISO format)
 }
 
-interface SearchResponse {
+export interface SearchResponse {
   query: string;
   page_size: number;
   page: number;
@@ -172,7 +226,48 @@ interface SearchResponse {
   collection: string;
   filters: SearchFilters | null;
   latency_ms: number;
-  results: SearchResult[];
+  results: SearchResultItem[];
+}
+
+// Upload-related types
+export interface UploadResponse {
+  task_id: string;
+  file_id: string;
+  file_name: string;
+  category: string;
+  collection: string;
+  status: string;
+  websocket_url: string;
+  message: string;
+}
+
+export interface TaskStatus {
+  task_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  total?: number;
+  current_step?: string;
+  result?: {
+    file_id: string;
+    filename: string;
+    chunks_created: number;
+    status: string;
+  };
+  error?: string;
+  message?: string;
+}
+
+export interface WebSocketMessage {
+  file_id: string;
+  status: 'connected' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  total?: number;
+  step?: string;
+  error?: string;
+  filename?: string;
+  chunks_created?: number;
+  collection?: string;
+  timestamp?: string;
 }
 ```
 
@@ -214,6 +309,11 @@ npm run test:coverage
 - **@tanstack/react-query**: ^5.28.9 - Data fetching
 - **zustand**: ^4.5.2 - State management
 - **shadcn**: ^4.1.0 - UI components
+- **class-variance-authority**: ^0.7.1 - Type-safe component variants
+- **clsx**: ^2.1.1 - Class name utility
+- **next-themes**: ^0.4.6 - Theme management
+- **radix-ui**: ^1.4.3 - UI primitives
+- **tw-animate-css**: ^1.4.0 - Animation utilities
 
 ### Styling
 - **tailwindcss**: ^4 - Utility-first CSS
@@ -224,6 +324,10 @@ npm run test:coverage
 - **typescript**: ^5 - Type safety
 - **eslint**: ^9 - Code linting
 - **@types/react**: ^19.0.0 - React types
+- **@types/react-dom**: ^19.0.0 - React DOM types
+- **@tailwindcss/postcss**: ^4 - Tailwind CSS PostCSS plugin
+- **babel-plugin-react-compiler**: 1.0.0 - React compiler
+- **eslint-config-next**: 15.0.2 - ESLint Next.js config
 
 See `package.json` for complete dependency list.
 

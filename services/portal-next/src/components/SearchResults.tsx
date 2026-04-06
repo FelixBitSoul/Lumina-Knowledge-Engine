@@ -5,6 +5,7 @@ import { Badge } from './ui/badge';
 import DocumentSidebar from './DocumentSidebar';
 import { Button } from './ui/button';
 import { SearchResultItem } from '../types';
+import { useUIStore } from '../store/uiStore';
 
 interface SearchResultsProps {
   results: SearchResultItem[];
@@ -17,6 +18,7 @@ interface SearchResultsProps {
   hasPrevPage?: boolean;
   onPageChange?: (page: number) => void;
   onPageSizeChange?: (size: number) => void;
+  onResultClick?: (result: SearchResultItem) => void;
 }
 
 const PAGE_SIZE_OPTIONS = [3, 5, 10, 20];
@@ -32,13 +34,30 @@ const SearchResults: React.FC<SearchResultsProps> = ({
   hasPrevPage = false,
   onPageChange,
   onPageSizeChange,
+  onResultClick,
 }) => {
   const [selectedDocument, setSelectedDocument] = useState<SearchResultItem | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { setActiveItem, setIsInspectorOpen } = useUIStore();
 
   const handleDocumentClick = (result: SearchResultItem) => {
-    setSelectedDocument(result);
-    setIsSidebarOpen(true);
+    if (onResultClick) {
+      onResultClick(result);
+    } else {
+      // 设置 activeItem 为 chunk 类型，打开检查器
+      setActiveItem({
+        type: 'chunk',
+        id: result.url, // 使用 url 作为临时 chunk_id
+        data: {
+          score: result.score,
+          content: result.content,
+          source_file_name: result.title,
+          source_file_id: result.url, // 使用 url 作为临时 file_id
+          collection: '' // 临时空集合
+        }
+      });
+      setIsInspectorOpen(true);
+    }
   };
 
   const formatDate = (dateString: string) => {
