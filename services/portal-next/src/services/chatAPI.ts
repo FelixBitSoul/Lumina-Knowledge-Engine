@@ -1,5 +1,15 @@
+import { ChatReference } from '../types';
+
+export interface ChatResponse {
+  id: string;
+  content: string;
+  conversation_id: string;
+  timestamp: number;
+  references?: ChatReference[];
+}
+
 export const chatAPI = {
-  sendMessage: async (message: string, conversationId: string | null, collection: string = 'all') => {
+  sendMessage: async (message: string, conversationId: string | null, collection: string = 'all'): Promise<ChatResponse> => {
     try {
       const response = await fetch('http://localhost:8000/chat', {
         method: 'POST',

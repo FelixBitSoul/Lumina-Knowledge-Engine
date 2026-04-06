@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query
 from lumina_brain.core.services.embedding import embedding_service
 from lumina_brain.core.services.qdrant import qdrant_service
+from lumina_brain.core.services.cache import cache_service
 from lumina_brain.config.settings import settings
 import time
 from typing import Optional
@@ -18,6 +19,8 @@ async def search(
     title: Optional[str] = Query(None, description="Filter by title (full-text search)"),
     url: Optional[str] = Query(None, description="Filter by URL (exact match)"),
     domain: Optional[str] = Query(None, description="Filter by domain (exact match)"),
+    category: Optional[str] = Query(None, description="Filter by category (exact match)"),
+    file_name: Optional[str] = Query(None, description="Filter by file name (exact match)"),
     start_time: Optional[str] = Query(None, description="Filter by start time (ISO format)"),
     end_time: Optional[str] = Query(None, description="Filter by end time (ISO format)")
 ):
@@ -29,12 +32,34 @@ async def search(
     - title: Full-text search in document titles
     - url: Exact match for document URL
     - domain: Exact match for document domain
+    - category: Exact match for document category
+    - file_name: Exact match for file name
     - start_time/end_time: Time range filter for updated_at
     """
     start_time_perf = time.time()
 
     target_collection = collection or settings.qdrant.collection
 
+    # Generate cache key
+    cache_key = cache_service.generate_cache_key(query, target_collection, filters)
+
+    # Check if result is in cache
+    cached_result = cache_service.get(cache_key)
+    if cached_result:
+        latency_ms = int((time.time() - start_time_perf) * 1000)
+        return {
+            "query": query,
+            "page_size": page_size,
+            "page": page,
+            "offset": offset,
+            "collection": target_collection,
+            "filters": filters if filters else None,
+            "latency_ms": latency_ms,
+            "results": cached_result,
+            "cached": True
+        }
+
+    # If not in cache, perform search
     query_vector = embedding_service.encode(query)
 
     filters = {}
@@ -44,6 +69,10 @@ async def search(
         filters["url"] = url
     if domain:
         filters["domain"] = domain
+    if category:
+        filters["category"] = category
+    if file_name:
+        filters["file_name"] = file_name
     if start_time or end_time:
         filters["time_range"] = {}
         if start_time:
@@ -72,6 +101,9 @@ async def search(
             prefetch_limit=prefetch_limit
         )
 
+    # Cache the results
+    cache_service.set(cache_key, results)
+
     latency_ms = int((time.time() - start_time_perf) * 1000)
 
     return {
@@ -83,4 +115,5 @@ async def search(
         "filters": filters if filters else None,
         "latency_ms": latency_ms,
         "results": results,
+        "cached": False
     }

@@ -232,6 +232,170 @@ class MinIOService:
             logger.error(f"[MINIO] Failed to upload web snapshot: {str(e)}", exc_info=True)
             raise
 
+    def list_files(self, collection_name: str, limit: int = 20, start_after: str = None) -> tuple[list[dict], str]:
+        """List files in a collection with pagination
+
+        Args:
+            collection_name: Collection name
+            limit: Maximum number of files to return
+            start_after: Object name to start after (for pagination)
+
+        Returns:
+            tuple[list[dict], str]: List of files with metadata and the next marker
+        """
+        files = []
+        next_marker = None
+        try:
+            # List document files
+            docs_prefix = f"raw/collections/{collection_name}/docs/"
+            logger.info(f"[MINIO] Listing files in collection: {collection_name}, prefix: {docs_prefix}, limit: {limit}, start_after: {start_after}")
+
+            # List objects in MinIO
+            objects = self.client.list_objects(
+                bucket_name=self.bucket,
+                prefix=docs_prefix,
+                recursive=True
+            )
+
+            # Collect objects up to the limit, skipping until start_after
+            collected_objects = []
+            skip_until_start_after = start_after is not None
+
+            for obj in objects:
+                # Skip objects until we reach start_after
+                if skip_until_start_after:
+                    if obj.object_name == start_after:
+                        skip_until_start_after = False
+                    continue
+
+                # Collect objects up to the limit
+                if len(collected_objects) < limit:
+                    collected_objects.append(obj)
+                else:
+                    break
+
+            # Check if there are more objects
+            if len(collected_objects) == limit:
+                # Set next marker to the last object's name
+                next_marker = collected_objects[-1].object_name
+
+            # Process collected objects
+            for obj in collected_objects:
+                # Extract file_id and filename from object name
+                import os
+                obj_name = obj.object_name
+                # Get file_id from the path: raw/collections/{collection}/docs/{file_id}.{ext}
+                file_id = os.path.basename(obj_name).split('.')[0]
+
+                # Get metadata
+                try:
+                    stat = self.client.stat_object(self.bucket, obj_name)
+                    original_name = stat.metadata.get('x-amz-meta-original-name', os.path.basename(obj_name))
+                    file_size = int(stat.metadata.get('x-amz-meta-file-size', obj.size))
+                    uploaded_at = stat.metadata.get('x-amz-meta-uploaded-at', obj.last_modified.isoformat())
+
+                    files.append({
+                        "file_id": file_id,
+                        "filename": original_name,
+                        "size": file_size,
+                        "uploaded_at": uploaded_at,
+                        "type": "document",
+                        "object_name": obj_name
+                    })
+                except Exception as e:
+                    logger.error(f"[MINIO] Failed to get metadata for {obj_name}: {str(e)}")
+                    # Continue with basic info
+                    files.append({
+                        "file_id": file_id,
+                        "filename": os.path.basename(obj_name),
+                        "size": obj.size,
+                        "uploaded_at": obj.last_modified.isoformat(),
+                        "type": "document",
+                        "object_name": obj_name
+                    })
+
+            # If we haven't reached the limit, list web snapshot files
+            remaining_limit = limit - len(files)
+            if remaining_limit > 0:
+                web_prefix = f"raw/collections/{collection_name}/web/"
+                logger.info(f"[MINIO] Listing web snapshots in collection: {collection_name}, prefix: {web_prefix}, limit: {remaining_limit}")
+
+                # List web objects
+                web_objects = self.client.list_objects(
+                    bucket_name=self.bucket,
+                    prefix=web_prefix,
+                    recursive=True
+                )
+
+                # Collect web objects up to the remaining limit
+                web_collected_objects = []
+                for obj in web_objects:
+                    if len(web_collected_objects) < remaining_limit:
+                        web_collected_objects.append(obj)
+                    else:
+                        break
+
+                # Check if there are more web objects
+                if len(web_collected_objects) == remaining_limit:
+                    # Set next marker to the last web object's name
+                    next_marker = web_collected_objects[-1].object_name
+
+                # Process web objects
+                for obj in web_collected_objects:
+                    # Extract file_id from object name
+                    import os
+                    obj_name = obj.object_name
+                    file_id = os.path.basename(obj_name).split('.')[0]
+
+                    # Get metadata
+                    try:
+                        stat = self.client.stat_object(self.bucket, obj_name)
+
+                        # Read the JSON content to get title and URL
+                        try:
+                            response = self.client.get_object(self.bucket, obj_name)
+                            snapshot_data = json.loads(response.read().decode('utf-8'))
+                            response.close()
+                            response.release_conn()
+
+                            files.append({
+                                "file_id": file_id,
+                                "filename": snapshot_data.get('title', f"Web: {snapshot_data.get('url', 'Unknown')}"),
+                                "size": obj.size,
+                                "uploaded_at": snapshot_data.get('metadata', {}).get('crawled_at', obj.last_modified.isoformat()),
+                                "type": "web",
+                                "url": snapshot_data.get('url'),
+                                "object_name": obj_name
+                            })
+                        except Exception as e:
+                            logger.error(f"[MINIO] Failed to read web snapshot content: {str(e)}")
+                            # Continue with basic info
+                            files.append({
+                                "file_id": file_id,
+                                "filename": os.path.basename(obj_name),
+                                "size": obj.size,
+                                "uploaded_at": obj.last_modified.isoformat(),
+                                "type": "web",
+                                "object_name": obj_name
+                            })
+                    except Exception as e:
+                        logger.error(f"[MINIO] Failed to get metadata for {obj_name}: {str(e)}")
+                        # Continue with basic info
+                        files.append({
+                            "file_id": file_id,
+                            "filename": os.path.basename(obj_name),
+                            "size": obj.size,
+                            "uploaded_at": obj.last_modified.isoformat(),
+                            "type": "web",
+                            "object_name": obj_name
+                        })
+
+            logger.info(f"[MINIO] Listed {len(files)} files in collection: {collection_name}, next_marker: {next_marker}")
+            return files, next_marker
+        except Exception as e:
+            logger.error(f"[MINIO] Failed to list files: {str(e)}", exc_info=True)
+            return [], None
+
 
 # Create global MinIO service instance
 logger.info("[MINIO] Creating global MinIO service instance...")

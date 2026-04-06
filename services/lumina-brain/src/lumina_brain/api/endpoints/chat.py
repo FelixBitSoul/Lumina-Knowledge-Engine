@@ -57,12 +57,24 @@ async def chat(request: ChatRequest):
         conversations[conversation_id].append({"role": "assistant", "content": content})
         logger.info(f"Saved conversation history for ID: {conversation_id}")
 
+        # 构建引用来源
+        references = []
+        for doc in context:
+            references.append({
+                "title": doc.get("title", "Unknown"),
+                "url": doc.get("url", ""),
+                "score": doc.get("score", 0),
+                "file_name": doc.get("file_name", "Unknown"),
+                "category": doc.get("category", "Unknown")
+            })
+
         # 构建响应
         response = ChatResponse(
             id=str(uuid.uuid4()),
             content=content,
             conversation_id=conversation_id,
-            timestamp=int(time.time())
+            timestamp=int(time.time()),
+            references=references
         )
 
         logger.info(f"Returning chat response: {response.id}")

@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Header
 from celery.result import AsyncResult
 
 from lumina_brain.config.settings import settings
@@ -15,6 +15,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 ALLOWED_EXTENSIONS = {"pdf", "md", "markdown", "txt", "text"}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 COLLECTION_NAME = "knowledge_base"
 
 
@@ -23,6 +24,7 @@ async def upload_document(
     file: UploadFile = File(..., description="Document file to upload"),
     category: str = Form(..., description="Category for the document"),
     collection: Optional[str] = Form(None, description="Collection name (default: knowledge_base)"),
+    authorization: Optional[str] = Header(None, description="API authorization token"),
 ) -> dict:
     """
     Upload document and start asynchronous processing.
@@ -35,6 +37,14 @@ async def upload_document(
 
     Returns task_id and file_id for status tracking.
     """
+    # API Authorization
+    if authorization:
+        # In a real implementation, you would validate the authorization token
+        # For now, we'll just log it
+        logger.info(f"[UPLOAD] Authorization token provided: {authorization[:20]}...")
+    else:
+        logger.info("[UPLOAD] No authorization token provided")
+
     logger.info(f"[UPLOAD] Starting upload process for file: {file.filename}, category: {category}, collection: {collection}")
 
     target_collection = collection or COLLECTION_NAME
@@ -58,6 +68,14 @@ async def upload_document(
         logger.info(f"[UPLOAD] Reading file content...")
         file_content = await file.read()
         logger.info(f"[UPLOAD] File content read successfully, size: {len(file_content)} bytes")
+
+        # Check file size
+        if len(file_content) > MAX_FILE_SIZE:
+            logger.error(f"[UPLOAD] File too large: {len(file_content)} bytes")
+            raise HTTPException(
+                status_code=400,
+                detail=f"File too large. Maximum size is {MAX_FILE_SIZE / (1024 * 1024)} MB.",
+            )
     except Exception as e:
         logger.error(f"[UPLOAD] Failed to read file: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
