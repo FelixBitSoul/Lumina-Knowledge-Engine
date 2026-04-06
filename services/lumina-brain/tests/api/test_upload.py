@@ -44,19 +44,20 @@ class TestUploadAPI:
         mock_doc.generate_document_id.return_value = "doc-uuid-123"
         mock_doc.split_text.return_value = ["chunk1", "chunk2"]
         mock_embedding.encode.return_value = [0.1] * 384
+        mock_qdrant.check_document_exists.return_value = False
 
         files = {"file": ("test.md", io.BytesIO(b"# Test"), "text/markdown")}
         data = {"category": "documentation"}
 
         response = client.post("/upload", files=files, data=data)
 
-        assert response.status_code == 200
+        assert response.status_code == 202
         result = response.json()
-        assert result["chunks_created"] == 2
-        assert result["document_id"] == "doc-uuid-123"
+        assert result["file_id"] == "doc-uuid-123"
         assert result["file_name"] == "test.md"
         assert result["category"] == "documentation"
-        assert result["content_hash"] == "abc123"
+        assert result["collection"] == "knowledge_base"
+        assert result["status"] == "pending"
 
     @patch("lumina_brain.api.endpoints.upload.document_service")
     @patch("lumina_brain.api.endpoints.upload.qdrant_service")
@@ -68,16 +69,19 @@ class TestUploadAPI:
         mock_doc.generate_document_id.return_value = "doc-uuid-456"
         mock_doc.split_text.return_value = ["Plain text content"]
         mock_embedding.encode.return_value = [0.2] * 384
+        mock_qdrant.check_document_exists.return_value = False
 
         files = {"file": ("readme.txt", io.BytesIO(b"Plain text content"), "text/plain")}
         data = {"category": "notes"}
 
         response = client.post("/upload", files=files, data=data)
 
-        assert response.status_code == 200
+        assert response.status_code == 202
         result = response.json()
         assert result["file_name"] == "readme.txt"
         assert result["category"] == "notes"
+        assert result["collection"] == "knowledge_base"
+        assert result["status"] == "pending"
 
     @patch("lumina_brain.api.endpoints.upload.document_service")
     def test_upload_empty_content(self, mock_doc):
@@ -113,6 +117,7 @@ class TestUploadAPI:
         mock_doc.generate_document_id.return_value = "same-uuid"
         mock_doc.split_text.return_value = ["chunk1"]
         mock_embedding.encode.return_value = [0.1] * 384
+        mock_qdrant.check_document_exists.return_value = False
 
         files = {"file": ("document.pdf", io.BytesIO(b"PDF content"), "application/pdf")}
         data = {"category": "test"}
@@ -120,7 +125,7 @@ class TestUploadAPI:
         response1 = client.post("/upload", files=files, data=data)
         response2 = client.post("/upload", files=files, data=data)
 
-        assert response1.json()["document_id"] == response2.json()["document_id"]
+        assert response1.json()["file_id"] == response2.json()["file_id"]
 
     @patch("lumina_brain.api.endpoints.upload.document_service")
     @patch("lumina_brain.api.endpoints.upload.qdrant_service")
@@ -132,14 +137,17 @@ class TestUploadAPI:
         mock_doc.generate_document_id.return_value = "doc-uuid-789"
         mock_doc.split_text.return_value = ["chunk1"]
         mock_embedding.encode.return_value = [0.1] * 384
+        mock_qdrant.check_document_exists.return_value = False
 
         files = {"file": ("test.txt", io.BytesIO(b"Content"), "text/plain")}
         data = {"category": "custom", "collection": "my_collection"}
 
         response = client.post("/upload", files=files, data=data)
 
-        assert response.status_code == 200
-        assert response.json()["collection"] == "my_collection"
+        assert response.status_code == 202
+        result = response.json()
+        assert result["collection"] == "my_collection"
+        assert result["status"] == "pending"
 
     @patch("lumina_brain.api.endpoints.upload.document_service")
     @patch("lumina_brain.api.endpoints.upload.qdrant_service")
@@ -152,14 +160,17 @@ class TestUploadAPI:
         mock_doc.generate_document_id.return_value = "longdoc"
         mock_doc.split_text.return_value = [f"chunk{i}" for i in range(10)]
         mock_embedding.encode.return_value = [0.1] * 384
+        mock_qdrant.check_document_exists.return_value = False
 
         files = {"file": ("long.md", io.BytesIO(b"content"), "text/markdown")}
         data = {"category": "test"}
 
         response = client.post("/upload", files=files, data=data)
 
-        assert response.status_code == 200
-        assert response.json()["chunks_created"] == 10
+        assert response.status_code == 202
+        result = response.json()
+        assert result["file_id"] == "longdoc"
+        assert result["status"] == "pending"
 
     @patch("lumina_brain.api.endpoints.upload.document_service")
     @patch("lumina_brain.api.endpoints.upload.qdrant_service")
@@ -171,10 +182,13 @@ class TestUploadAPI:
         mock_doc.generate_document_id.return_value = "doc-id"
         mock_doc.split_text.return_value = ["chunk1"]
         mock_embedding.encode.side_effect = Exception("Model error")
+        mock_qdrant.check_document_exists.return_value = False
 
         files = {"file": ("test.txt", io.BytesIO(b"Content"), "text/plain")}
         data = {"category": "test"}
 
         response = client.post("/upload", files=files, data=data)
-        assert response.status_code == 500
-        assert "Failed to generate embedding" in response.json()["detail"]
+        assert response.status_code == 202
+        result = response.json()
+        assert result["file_id"] == "doc-id"
+        assert result["status"] == "pending"

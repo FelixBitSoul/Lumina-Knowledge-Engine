@@ -1,19 +1,17 @@
 import logging
 from lumina_brain.celery_app import celery_app
-from lumina_brain.core.services.minio import minio_service
 from lumina_brain.core.services.document import document_service
 from lumina_brain.core.services.embedding import embedding_service
 from lumina_brain.core.services.qdrant import qdrant_service
 from lumina_brain.core.services.notification_service import notification_service
 from lumina_brain.config.settings import settings
 import hashlib
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 
 @celery_app.task(bind=True, name="lumina_brain.tasks.process_document")
-def process_document(self, file_id: str, filename: str, category: str, collection: str = "knowledge_base"):
+def process_document(self, file_id: str, collection: str = "knowledge_base", source_type: str = "document", filename: str = None, category: str = "general"):
     """
     Asynchronous document processing task
 
@@ -28,28 +26,43 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
 
     Args:
         file_id: Document ID (based on content hash)
-        filename: Original filename
-        category: Document category
         collection: Qdrant collection name
+        source_type: Source type ("document" or "web")
+        filename: Original filename (required for document type)
+        category: Document category
     """
-    logger.info(f"[TASK] Starting document processing task for file_id: {file_id}, filename: {filename}, collection: {collection}")
+    logger.info(f"[TASK] Starting document processing task for file_id: {file_id}, source_type: {source_type}, collection: {collection}")
 
     try:
         logger.info(f"[TASK] Step 1/7: Downloading file from MinIO...")
         self.update_state(state="PROGRESS", meta={"status": "downloading", "file_id": file_id})
 
         # Download file from MinIO
-        file_content = download_file_from_minio(file_id, filename)
-        file_extension = filename.split(".")[-1]
-        logger.info(f"[TASK] File downloaded successfully, size: {len(file_content)} bytes, extension: {file_extension}")
+        file_content = download_file_from_minio(file_id, collection, source_type, filename)
+        logger.info(f"[TASK] File downloaded successfully, size: {len(file_content)} bytes")
 
         logger.info(f"[TASK] Step 2/7: Extracting text...")
         self.update_state(state="PROGRESS", meta={"status": "extracting", "file_id": file_id})
 
-        # Extract text
-        text = document_service.extract_text(file_content, file_extension)
-        content_hash = document_service.generate_content_hash(text)
-        logger.info(f"[TASK] Text extracted successfully, length: {len(text)} characters")
+        # Extract text based on source type
+        snapshot = None
+        title = ""
+        if source_type == "web":
+            # Parse JSON for web snapshots
+            import json
+            snapshot = json.loads(file_content.decode('utf-8'))
+            text = snapshot.get("content", "")
+            title = snapshot.get("title", "")
+            content_hash = document_service.generate_content_hash(text)
+            logger.info(f"[TASK] Web snapshot content extracted successfully, length: {len(text)} characters")
+        else:
+            # Extract text for regular documents
+            if not filename:
+                raise ValueError("Filename is required for document type")
+            file_extension = filename.split(".")[-1]
+            text = document_service.extract_text(file_content, file_extension)
+            content_hash = document_service.generate_content_hash(text)
+            logger.info(f"[TASK] Text extracted successfully, length: {len(text)} characters")
 
         logger.info(f"[TASK] Step 3/7: Splitting text into chunks...")
         self.update_state(state="PROGRESS", meta={"status": "chunking", "file_id": file_id})
@@ -92,20 +105,36 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
             chunk_id = int(hashlib.sha256(chunk_content.encode()).hexdigest(), 16) % 10**18
 
             # Create point
+            payload = {
+                "file_id": file_id,  # Keyword field for fast filtering
+                "content_hash": content_hash,
+                "category": category,
+                "content": chunk,
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+                "document_id": file_id,
+                "source_type": source_type,
+            }
+
+            # Add source-specific payload
+            if source_type == "web":
+                payload["url"] = snapshot.get("url", "")
+                payload["title"] = title
+                payload["minio_path"] = f"raw/collections/{collection}/web/{file_id}.json"
+            else:
+                payload["file_name"] = filename
+                import os
+                _, extension = os.path.splitext(filename)
+                if extension:
+                    extension = extension[1:]  # Remove leading dot
+                else:
+                    extension = "bin"
+                payload["minio_path"] = f"raw/collections/{collection}/docs/{file_id}.{extension}"
+
             points.append({
                 "id": chunk_id,
                 "vector": vector,
-                "payload": {
-                    "file_id": file_id,  # Keyword field for fast filtering
-                    "file_name": filename,
-                    "content_hash": content_hash,
-                    "category": category,
-                    "content": chunk,
-                    "chunk_index": i,
-                    "total_chunks": len(chunks),
-                    "document_id": file_id,
-                    "minio_path": f"{file_id}/raw/{filename}",
-                },
+                "payload": payload,
             })
 
         logger.info(f"[TASK] Step 5/7: Storing {len(points)} points in Qdrant...")
@@ -151,17 +180,18 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
         raise
 
 
-def download_file_from_minio(file_id: str, filename: str) -> bytes:
+def download_file_from_minio(file_id: str, collection: str, source_type: str, filename: str = None) -> bytes:
     """Download file from MinIO
 
     Args:
         file_id: Document ID
-        filename: Original filename
+        collection: Collection name
+        source_type: Source type ("document" or "web")
+        filename: Original filename (required for document type)
 
     Returns:
         bytes: File content
     """
-    logger.info(f"[MINIO] Downloading file from MinIO: {file_id}/raw/{filename}")
     from minio import Minio
 
     client = Minio(
@@ -172,9 +202,26 @@ def download_file_from_minio(file_id: str, filename: str) -> bytes:
     )
 
     try:
+        if source_type == "web":
+            # Web snapshot path: raw/collections/{collection}/web/{file_id}.json
+            object_name = f"raw/collections/{collection}/web/{file_id}.json"
+            logger.info(f"[MINIO] Downloading web snapshot from MinIO: {object_name}")
+        else:
+            # Document path: raw/collections/{collection}/docs/{file_id}.{extension}
+            if not filename:
+                raise ValueError("Filename is required for document type")
+            import os
+            _, extension = os.path.splitext(filename)
+            if extension:
+                extension = extension[1:]  # Remove leading dot
+            else:
+                extension = "bin"
+            object_name = f"raw/collections/{collection}/docs/{file_id}.{extension}"
+            logger.info(f"[MINIO] Downloading document from MinIO: {object_name}")
+
         response = client.get_object(
             bucket_name=settings.minio.bucket,
-            object_name=f"{file_id}/raw/{filename}",
+            object_name=object_name,
         )
         content = response.read()
         logger.info(f"[MINIO] File downloaded successfully, size: {len(content)} bytes")

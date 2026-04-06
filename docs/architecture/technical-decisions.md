@@ -28,7 +28,7 @@ This document documents the key technical decisions made during the design and i
 # Service separation
 services:
   - crawler-go      # Go-based web scraping
-  - lumina-brain        # Python-based vector processing  
+  - lumina-brain        # Python-based vector processing
   - portal-next     # JavaScript-based user interface
   - qdrant          # Vector database service
 ```
@@ -194,6 +194,47 @@ services:
 
 ---
 
+### Decision 8: Asynchronous Document Processing
+
+**Decision**: Implement asynchronous document processing using Celery + Redis for task queuing and MinIO for object storage.
+
+**Rationale**:
+- **Scalability**: Separate processing from API requests to handle large documents
+- **Reliability**: Task retries and error handling for robust processing
+- **User Experience**: Immediate API response with WebSocket notifications
+- **Resource Utilization**: Background processing uses idle resources efficiently
+
+**Trade-offs**:
+- **Complexity**: Additional infrastructure components (Redis, Celery)
+- **Latency**: Processing completes asynchronously, not in real-time
+- **Monitoring**: Requires additional monitoring for background tasks
+
+**Alternatives**:
+- **Synchronous Processing**: Rejected due to poor user experience for large documents
+- **Message Queues (RabbitMQ)**: Rejected due to higher complexity compared to Redis
+
+---
+
+### Decision 9: Object Storage Path Structure
+
+**Decision**: Use structured path format for MinIO object storage based on document type and collection.
+
+**Rationale**:
+- **Organization**: Clear separation of different document types
+- **Scalability**: Efficient storage and retrieval of large numbers of documents
+- **Metadata**: Path structure includes collection and document type information
+- **Compatibility**: Supports both web snapshots and regular documents
+
+**Path Formats**:
+- **Web Snapshots**: `raw/collections/{collection_name}/web/{sha256_url}.json`
+- **Regular Documents**: `raw/collections/{collection_name}/docs/{sha256}.{extension}`
+
+**Alternatives**:
+- **Flat Structure**: Rejected due to poor organization and scalability
+- **Timestamp-Based**: Rejected due to lack of semantic meaning
+
+---
+
 ## 🏭 Deployment Decisions
 
 ### Decision 8: Containerization Strategy
@@ -236,7 +277,7 @@ services:
 
 ## 🔄 Future Architecture Decisions
 
-### Decision 10: Scaling Strategy (Planned)
+### Decision 12: Scaling Strategy (Planned)
 
 **Planned Decision**: Adopt Kubernetes for production scaling.
 
@@ -248,7 +289,7 @@ services:
 
 **Implementation Timeline**: Phase 5 (6-8 months)
 
-### Decision 11: Caching Strategy (Planned)
+### Decision 13: Caching Strategy (Planned)
 
 **Planned Decision**: Implement Redis-based caching for query results and embeddings.
 

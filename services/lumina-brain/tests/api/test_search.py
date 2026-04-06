@@ -21,10 +21,10 @@ class TestSearchAPI:
 
     def test_search_with_limit(self):
         """Test search with custom limit"""
-        response = client.get("/search?query=test&limit=5")
+        response = client.get("/search?query=test&page_size=5")
         assert response.status_code == 200
         data = response.json()
-        assert data["limit"] == 5
+        assert data["page_size"] == 5
 
     def test_search_with_title_filter(self):
         """Test search with title filter"""
@@ -51,7 +51,7 @@ class TestSearchAPI:
         # Generate proper RFC3339 format with 'Z' suffix
         start_time = (now - datetime.timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')[:-4] + 'Z'
         end_time = now.strftime('%Y-%m-%dT%H:%M:%S.%fZ')[:-4] + 'Z'
-        
+
         response = client.get(f"/search?query=test&start_time={start_time}&end_time={end_time}")
         assert response.status_code == 200
         data = response.json()
@@ -69,10 +69,10 @@ class TestSearchAPI:
 
     def test_search_invalid_limit(self):
         """Test search with invalid limit"""
-        # Test limit too low
-        response = client.get("/search?query=test&limit=0")
+        # Test page_size too low
+        response = client.get("/search?query=test&page_size=0")
         assert response.status_code == 422
-        
-        # Test limit too high
-        response = client.get("/search?query=test&limit=11")
+
+        # Test page_size too high
+        response = client.get("/search?query=test&page_size=21")
         assert response.status_code == 422

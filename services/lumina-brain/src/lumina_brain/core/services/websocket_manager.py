@@ -101,8 +101,10 @@ class ConnectionManager:
         """
         file_id = data.get('file_id')
         logger.info(f"[WS MANAGER] Processing notification for file_id: {file_id}, status: {data.get('status')}")
-        if file_id:
+        if file_id and file_id in self.active_connections:
             await self.broadcast(data, file_id)
+        elif file_id:
+            logger.info(f"[WS MANAGER] Room {file_id} does not exist, skipping broadcast")
 
     async def start_notification_listener(self):
         """Start listening for notifications"""
