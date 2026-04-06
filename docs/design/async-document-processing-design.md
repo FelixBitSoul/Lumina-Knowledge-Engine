@@ -522,7 +522,7 @@ class Settings(BaseSettings):
 from lumina_brain.core.services.notification_service import notification_service
 
 @celery_app.task(bind=True, name="lumina_brain.tasks.process_document")
-def process_document(self, file_id: str, filename: str, category: str, collection: str = "documents"):
+def process_document(self, file_id: str, collection: str, source_type: str, filename: str = None, category: str = None):
     """
     异步文档处理任务
 
@@ -542,7 +542,8 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
         notification_service.publish_document_completion(file_id, {
             "filename": filename,
             "chunks_created": len(chunks),
-            "collection": collection
+            "collection": collection,
+            "source_type": source_type
         })
 
         self.update_state(state="SUCCESS", meta={
@@ -556,6 +557,7 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
             "filename": filename,
             "chunks_created": len(chunks),
             "status": "success",
+            "source_type": source_type
         }
 
     except Exception as e:
@@ -574,7 +576,7 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
 ```python
 # 任务进度通知
 @celery_app.task(bind=True, name="lumina_brain.tasks.process_document")
-def process_document(self, file_id: str, filename: str, category: str, collection: str = "documents"):
+def process_document(self, file_id: str, collection: str, source_type: str, filename: str = None, category: str = None):
     try:
         # ... 处理逻辑 ...
 
@@ -791,10 +793,12 @@ async def upload_document(
 
     # 启动 Celery 任务
     task = process_document.apply_async(
-        args=[file_id, file.filename, category, target_collection],
+        args=[file_id, target_collection, "document", file.filename, category],
         task_id=file_id,
     )
 
+    # Use localhost instead of 0.0.0.0 for WebSocket URL
+    websocket_host = "localhost" if settings.api.host == "0.0.0.0" else settings.api.host
     return {
         "task_id": task.id,
         "file_id": file_id,
@@ -802,7 +806,7 @@ async def upload_document(
         "category": category,
         "collection": target_collection,
         "status": "pending",
-        "websocket_url": f"ws://{settings.api.host}:{settings.api.port}/ws/{file_id}",
+        "websocket_url": f"ws://{websocket_host}:{settings.api.port}/ws/{file_id}",
         "message": "Document uploaded successfully. Processing in background.",
     }
 ```

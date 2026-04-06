@@ -82,7 +82,7 @@ interface HealthResponse {
 
 **Endpoint**: `POST /ingest`
 
-**Purpose**: Process and store document vectors
+**Purpose**: Upload document to MinIO and trigger asynchronous processing
 
 **Request**:
 ```http
@@ -106,11 +106,15 @@ interface Document {
 }
 ```
 
+**Query Parameters**:
+- `collection`: Optional collection name (default: `knowledge_base`)
+
 **Success Response**:
 ```json
 {
   "status": "success",
-  "point_id": "550e8400-e29b-41d4-a716-446655440000"
+  "task_id": "celery-task-id",
+  "minio_path": "raw/collections/knowledge_base/web/sha256-hash.json"
 }
 ```
 
@@ -118,7 +122,8 @@ interface Document {
 ```typescript
 interface IngestSuccessResponse {
   status: "success";
-  point_id: string;   // UUID of stored vector
+  task_id: string;    // Celery task ID
+  minio_path: string; // Path to stored snapshot in MinIO
 }
 ```
 
@@ -126,7 +131,7 @@ interface IngestSuccessResponse {
 ```json
 {
   "status": "error",
-  "message": "Failed to generate embedding: model error"
+  "message": "MinIO upload failed: connection error"
 }
 ```
 
@@ -139,7 +144,7 @@ interface ErrorResponse {
 ```
 
 **Status Codes**:
-- `200 OK`: Document successfully ingested
+- `200 OK`: Document successfully uploaded and processing started
 - `400 Bad Request`: Invalid input data
 - `500 Internal Server Error`: Processing error
 
@@ -153,15 +158,21 @@ interface ErrorResponse {
 
 **Request**:
 ```http
-GET /search?query=how%20to%20install%20docker&limit=5 HTTP/1.1
+GET /search?query=how%20to%20install%20docker&page_size=5 HTTP/1.1
 Host: localhost:8000
 ```
 
 **Query Parameters**:
 ```typescript
 interface SearchParams {
-  query: string;    // Search query (URL encoded)
-  limit?: number;   // Maximum results (default: 3, max: 20)
+  query: string;      // Search query (URL encoded)
+  page_size?: number; // Results per page (default: 3, min: 1, max: 20)
+  page?: number;      // Page number (default: 1, min: 1)
+  collection?: string; // Collection name (default: config collection)
+  title?: string;     // Filter by title
+  domain?: string;    // Filter by domain
+  start_time?: string; // Filter by start time (ISO format)
+  end_time?: string;   // Filter by end time (ISO format)
 }
 ```
 
@@ -169,8 +180,11 @@ interface SearchParams {
 ```json
 {
   "query": "how to install docker",
-  "limit": 5,
+  "page_size": 5,
+  "page": 1,
+  "offset": 0,
   "collection": "knowledge_base",
+  "filters": null,
   "latency_ms": 45,
   "results": [
     {
@@ -187,8 +201,11 @@ interface SearchParams {
 ```typescript
 interface SearchResponse {
   query: string;
-  limit: number;
+  page_size: number;
+  page: number;
+  offset: number;
   collection: string;
+  filters: object | null;
   latency_ms: number;
   results: SearchResult[];
 }
@@ -271,7 +288,7 @@ The Portal communicates with the Brain API using the following client configurat
 const API_BASE_URL = 'http://localhost:8000';
 
 interface ApiClient {
-  search(query: string, limit?: number): Promise<SearchResponse>;
+  search(query: string, pageSize?: number, page?: number): Promise<SearchResponse>;
   health(): Promise<HealthResponse>;
 }
 ```
@@ -281,7 +298,7 @@ interface ApiClient {
 ```typescript
 async function performSearch(query: string): Promise<SearchResult[]> {
   const response = await fetch(
-    `${API_BASE_URL}/search?query=${encodeURIComponent(query)}&limit=5`
+    `${API_BASE_URL}/search?query=${encodeURIComponent(query)}&page_size=5`
   );
   
   if (!response.ok) {

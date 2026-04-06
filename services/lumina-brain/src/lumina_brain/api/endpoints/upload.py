@@ -1,4 +1,3 @@
-import hashlib
 import logging
 from typing import Optional
 
@@ -94,7 +93,7 @@ async def upload_document(
     # Upload file to MinIO
     try:
         logger.info(f"[UPLOAD] Uploading file to MinIO...")
-        minio_service.upload_bytes(file_content, file_id, file.filename)
+        minio_service.upload_bytes(file_content, file_id, file.filename, target_collection)
         logger.info(f"[UPLOAD] File uploaded to MinIO successfully")
     except Exception as e:
         logger.error(f"[UPLOAD] Failed to upload to MinIO: {str(e)}", exc_info=True)
@@ -103,7 +102,7 @@ async def upload_document(
     # Start Celery task
     logger.info(f"[UPLOAD] Starting Celery task for file_id: {file_id}")
     task = process_document.apply_async(
-        args=[file_id, file.filename, category, target_collection],
+        args=[file_id, target_collection, "document", file.filename, category],
         task_id=file_id,
     )
     logger.info(f"[UPLOAD] Celery task started successfully, task_id: {task.id}")
