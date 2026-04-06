@@ -165,98 +165,279 @@
 
 ### 3.1 WebSocket 集成设计
 
-#### 3.1.1 WebSocket 管理器
+#### 3.1.1 通知服务 (NotificationService)
+
+```python
+# lumina_brain/core/services/notification_service.py
+import logging
+import json
+import asyncio
+from typing import Dict, Any, Optional, Callable
+import redis
+import redis.asyncio as redis_async
+from lumina_brain.config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+
+class NotificationService:
+    """Service for handling Redis Pub/Sub notifications"""
+
+    def __init__(self):
+        # Sync client for Celery tasks
+        self.sync_client: Optional[redis.Redis] = None
+        # Async client for WebSocket
+        self.async_client: Optional[redis_async.Redis] = None
+        self.pubsub: Optional[redis_async.client.PubSub] = None
+        self.message_handler: Optional[Callable] = None
+        logger.info("[NOTIFICATION] Notification service initialized")
+
+    def get_sync_client(self) -> redis.Redis:
+        """Get synchronous Redis client"""
+        if not self.sync_client:
+            self.sync_client = redis.Redis(
+                host=settings.redis.host,
+                port=settings.redis.port,
+                db=settings.redis.db
+            )
+        return self.sync_client
+
+    async def get_async_client(self) -> redis_async.Redis:
+        """Get asynchronous Redis client"""
+        if not self.async_client:
+            self.async_client = redis_async.Redis(
+                host=settings.redis.host,
+                port=settings.redis.port,
+                db=settings.redis.db
+            )
+        return self.async_client
+
+    def publish_document_completion(self, file_id: str, metadata: dict = None):
+        """Publish document completion notification"""
+        message = {
+            "file_id": file_id,
+            "status": "completed",
+            "timestamp": self._get_timestamp(),
+            **(metadata or {})
+        }
+        self._publish_sync("document_updates", message)
+
+    def publish_document_failure(self, file_id: str, error: str):
+        """Publish document failure notification"""
+        message = {
+            "file_id": file_id,
+            "status": "failed",
+            "error": error,
+            "timestamp": self._get_timestamp()
+        }
+        self._publish_sync("document_updates", message)
+
+    def publish_document_progress(self, file_id: str, progress_data: dict):
+        """Publish document progress notification"""
+        message = {
+            "file_id": file_id,
+            "status": "processing",
+            "timestamp": self._get_timestamp(),
+            **progress_data
+        }
+        self._publish_sync("document_updates", message)
+
+    async def publish_notification(self, file_id: str, status: str, **kwargs):
+        """Publish generic notification"""
+        message = {
+            "file_id": file_id,
+            "status": status,
+            "timestamp": self._get_timestamp(),
+            **kwargs
+        }
+        await self._publish_async("document_updates", message)
+
+    def _publish_sync(self, channel: str, message: Dict[str, Any]):
+        """Publish message synchronously"""
+        try:
+            client = self.get_sync_client()
+            client.publish(channel, json.dumps(message))
+            logger.debug(f"[NOTIFICATION] Published message to {channel}: {message}")
+        except Exception as e:
+            logger.error(f"[NOTIFICATION] Failed to publish message: {str(e)}", exc_info=True)
+
+    async def _publish_async(self, channel: str, message: Dict[str, Any]):
+        """Publish message asynchronously"""
+        try:
+            client = await self.get_async_client()
+            await client.publish(channel, json.dumps(message))
+            logger.debug(f"[NOTIFICATION] Published message to {channel}: {message}")
+        except Exception as e:
+            logger.error(f"[NOTIFICATION] Failed to publish message: {str(e)}", exc_info=True)
+
+    async def start_listener(self, message_handler: Callable):
+        """Start Redis Pub/Sub listener"""
+        self.message_handler = message_handler
+        try:
+            client = await self.get_async_client()
+            self.pubsub = client.pubsub()
+            await self.pubsub.subscribe("document_updates")
+            logger.info("[NOTIFICATION] Started Redis Pub/Sub listener")
+            asyncio.create_task(self._listen_for_messages())
+        except Exception as e:
+            logger.error(f"[NOTIFICATION] Failed to start listener: {str(e)}", exc_info=True)
+
+    async def _listen_for_messages(self):
+        """Listen for Redis messages"""
+        if not self.pubsub:
+            return
+
+        try:
+            async for message in self.pubsub.listen():
+                if message['type'] == 'message':
+                    try:
+                        data = json.loads(message['data'])
+                        if self.message_handler:
+                            await self.message_handler(data)
+                    except Exception as e:
+                        logger.error(f"[NOTIFICATION] Error processing message: {str(e)}", exc_info=True)
+        except Exception as e:
+            logger.error(f"[NOTIFICATION] Error in listener: {str(e)}", exc_info=True)
+
+    def _get_timestamp(self) -> str:
+        """Get current timestamp"""
+        from datetime import datetime
+        return datetime.now().isoformat()
+
+    async def close(self):
+        """Close all connections"""
+        if self.sync_client:
+            self.sync_client.close()
+        if self.async_client:
+            await self.async_client.close()
+        if self.pubsub:
+            await self.pubsub.close()
+        logger.info("[NOTIFICATION] Notification service closed")
+
+
+# Create global instance
+notification_service = NotificationService()
+```
+
+### 3.1.2 WebSocket 管理器
 
 ```python
 # lumina_brain/core/services/websocket_manager.py
+import logging
 from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict, Set
-import json
-import asyncio
-import redis.asyncio as redis
-from lumina_brain.config.settings import settings
+from lumina_brain.core.services.notification_service import notification_service
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectionManager:
     def __init__(self):
+        """Initialize WebSocket connection manager"""
         # room: {file_id} -> set of websocket connections
         self.active_connections: Dict[str, Set[WebSocket]] = {}
-        self.redis_client = None
-        self.pubsub = None
+        logger.info("[WS MANAGER] WebSocket manager initialized")
 
     async def connect(self, websocket: WebSocket, room: str):
-        """连接到指定房间"""
+        """Connect to specified room
+
+        Args:
+            websocket: WebSocket connection
+            room: Room name (file_id)
+        """
+        logger.info(f"[WS MANAGER] Accepting WebSocket connection for room: {room}")
         await websocket.accept()
         if room not in self.active_connections:
             self.active_connections[room] = set()
+            logger.info(f"[WS MANAGER] Created new room: {room}")
         self.active_connections[room].add(websocket)
+        logger.info(f"[WS MANAGER] WebSocket connected to room: {room}, total connections: {len(self.active_connections[room])}")
+
+        # Send connection confirmation
+        await self.send_personal_message({
+            "file_id": room,
+            "status": "connected",
+            "message": "WebSocket connected successfully"
+        }, websocket)
+        logger.info(f"[WS MANAGER] Sent connection confirmation to room: {room}")
 
     async def disconnect(self, websocket: WebSocket, room: str):
-        """断开连接并从房间移除"""
+        """Disconnect from room
+
+        Args:
+            websocket: WebSocket connection
+            room: Room name (file_id)
+        """
+        logger.info(f"[WS MANAGER] Disconnecting WebSocket from room: {room}")
         if room in self.active_connections:
-            self.active_connections[room].remove(websocket)
+            self.active_connections[room].discard(websocket)
+            logger.info(f"[WS MANAGER] WebSocket removed from room: {room}, remaining connections: {len(self.active_connections[room])}")
             if not self.active_connections[room]:
                 del self.active_connections[room]
+                logger.info(f"[WS MANAGER] Room {room} is empty, removed")
 
     async def send_personal_message(self, message: dict, websocket: WebSocket):
-        """发送个人消息"""
-        await websocket.send_json(message)
+        """Send personal message to specific connection
+
+        Args:
+            message: Message to send
+            websocket: WebSocket connection
+        """
+        try:
+            await websocket.send_json(message)
+            logger.debug(f"[WS MANAGER] Personal message sent: {message}")
+        except Exception as e:
+            logger.error(f"[WS MANAGER] Failed to send personal message: {str(e)}")
 
     async def broadcast(self, message: dict, room: str):
-        """向房间广播消息"""
+        """Broadcast message to all connections in room
+
+        Args:
+            message: Message to broadcast
+            room: Room name (file_id)
+        """
+        logger.info(f"[WS MANAGER] Broadcasting message to room: {room}, message: {message}")
         if room in self.active_connections:
             disconnected = []
-            for connection in self.active_connections[room]:
+            connections = list(self.active_connections[room])
+            logger.info(f"[WS MANAGER] Broadcasting to {len(connections)} connections in room: {room}")
+
+            for connection in connections:
                 try:
                     await connection.send_json(message)
-                except Exception:
+                    logger.debug(f"[WS MANAGER] Message sent to connection in room: {room}")
+                except Exception as e:
+                    logger.error(f"[WS MANAGER] Failed to send message to connection: {str(e)}")
                     disconnected.append(connection)
 
-            # 清理断开的连接
-            for connection in disconnected:
-                await self.disconnect(connection, room)
+            # Clean up disconnected connections
+            if disconnected:
+                logger.info(f"[WS MANAGER] Cleaning up {len(disconnected)} disconnected connections from room: {room}")
+                for connection in disconnected:
+                    await self.disconnect(connection, room)
+        else:
+            logger.warning(f"[WS MANAGER] Room not found for broadcast: {room}")
 
-    async def init_redis_pubsub(self):
-        """初始化 Redis Pub/Sub 监听"""
-        self.redis_client = redis.Redis(
-            host=settings.redis.host,
-            port=settings.redis.port,
-            db=settings.redis.db
-        )
-        self.pubsub = self.redis_client.pubsub()
-        await self.pubsub.subscribe("document_updates")
+    async def handle_notification(self, data: dict):
+        """Handle notification from Redis
 
-        # 启动监听任务
-        asyncio.create_task(self.listen_for_notifications())
+        Args:
+            data: Notification data
+        """
+        file_id = data.get('file_id')
+        logger.info(f"[WS MANAGER] Processing notification for file_id: {file_id}, status: {data.get('status')}")
+        if file_id:
+            await self.broadcast(data, file_id)
 
-    async def listen_for_notifications(self):
-        """监听 Redis Pub/Sub 通知"""
-        async for message in self.pubsub.listen():
-            if message['type'] == 'message':
-                try:
-                    data = json.loads(message['data'])
-                    file_id = data.get('file_id')
-                    if file_id:
-                        await self.broadcast(data, file_id)
-                except Exception as e:
-                    print(f"Error processing pubsub message: {e}")
-
-    async def publish_notification(self, file_id: str, status: str, **kwargs):
-        """发布通知到 Redis"""
-        if self.redis_client:
-            message = {
-                "file_id": file_id,
-                "status": status,
-                **kwargs
-            }
-            await self.redis_client.publish(
-                "document_updates",
-                json.dumps(message)
-            )
+    async def start_notification_listener(self):
+        """Start listening for notifications"""
+        await notification_service.start_listener(self.handle_notification)
+        logger.info("[WS MANAGER] Notification listener started")
 
 
-# 创建全局 WebSocket 管理器实例
+# Create global WebSocket manager instance
 websocket_manager = ConnectionManager()
+logger.info("[WS MANAGER] Global WebSocket manager instance created")
 ```
 
 #### 3.1.2 WebSocket 路由
@@ -338,6 +519,8 @@ class Settings(BaseSettings):
 ```python
 # lumina_brain/tasks/document_tasks.py 扩展
 
+from lumina_brain.core.services.notification_service import notification_service
+
 @celery_app.task(bind=True, name="lumina_brain.tasks.process_document")
 def process_document(self, file_id: str, filename: str, category: str, collection: str = "documents"):
     """
@@ -356,7 +539,7 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
         # ... 现有处理逻辑 ...
 
         # 任务完成后发送 Redis Pub/Sub 通知
-        send_document_completion_notification(file_id, {
+        notification_service.publish_document_completion(file_id, {
             "filename": filename,
             "chunks_created": len(chunks),
             "collection": collection
@@ -377,55 +560,13 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
 
     except Exception as e:
         # 发送失败通知
-        send_document_failure_notification(file_id, str(e))
+        notification_service.publish_document_failure(file_id, str(e))
         self.update_state(state="FAILURE", meta={
             "status": "failed",
             "file_id": file_id,
             "error": str(e),
         })
         raise
-
-
-def send_document_completion_notification(file_id: str, metadata: dict = None):
-    """发送文档处理完成通知"""
-    import redis
-    import json
-
-    r = redis.Redis(
-        host=settings.redis.host,
-        port=settings.redis.port,
-        db=settings.redis.db
-    )
-
-    message = {
-        "file_id": file_id,
-        "status": "completed",
-        "timestamp": datetime.now().isoformat(),
-        **(metadata or {})
-    }
-
-    r.publish("document_updates", json.dumps(message))
-
-
-def send_document_failure_notification(file_id: str, error: str):
-    """发送文档处理失败通知"""
-    import redis
-    import json
-
-    r = redis.Redis(
-        host=settings.redis.host,
-        port=settings.redis.port,
-        db=settings.redis.db
-    )
-
-    message = {
-        "file_id": file_id,
-        "status": "failed",
-        "error": error,
-        "timestamp": datetime.now().isoformat()
-    }
-
-    r.publish("document_updates", json.dumps(message))
 ```
 
 #### 3.2.2 任务进度通知（可选）
@@ -440,7 +581,7 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
         for i, chunk in enumerate(chunks):
             if i % 10 == 0:
                 # 发送进度通知
-                send_document_progress_notification(file_id, {
+                notification_service.publish_document_progress(file_id, {
                     "progress": i,
                     "total": len(chunks),
                     "step": "embedding"
@@ -452,27 +593,6 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
 
     except Exception as e:
         # ... 错误处理 ...
-
-
-def send_document_progress_notification(file_id: str, progress_data: dict):
-    """发送文档处理进度通知"""
-    import redis
-    import json
-
-    r = redis.Redis(
-        host=settings.redis.host,
-        port=settings.redis.port,
-        db=settings.redis.db
-    )
-
-    message = {
-        "file_id": file_id,
-        "status": "processing",
-        "timestamp": datetime.now().isoformat(),
-        **progress_data
-    }
-
-    r.publish("document_updates", json.dumps(message))
 ```
 
 ---
@@ -699,6 +819,7 @@ async def upload_document(
 from fastapi import FastAPI
 from lumina_brain.api.endpoints import upload, websocket, documents
 from lumina_brain.core.services.websocket_manager import websocket_manager
+from lumina_brain.core.services.notification_service import notification_service
 
 app = FastAPI()
 
@@ -711,16 +832,15 @@ app.include_router(documents.router, prefix="/api/documents", tags=["documents"]
 @app.on_event("startup")
 async def startup_event():
     """应用启动时初始化 WebSocket 管理器"""
-    await websocket_manager.init_redis_pubsub()
-    print("WebSocket manager initialized with Redis Pub/Sub")
+    await websocket_manager.start_notification_listener()
+    print("WebSocket manager initialized with notification listener")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """应用关闭时清理资源"""
-    if websocket_manager.redis_client:
-        await websocket_manager.redis_client.close()
-    print("WebSocket manager resources cleaned up")
+    await notification_service.close()
+    print("Notification service resources cleaned up")
 ```
 
 ### 4.2 Docker Compose 配置
