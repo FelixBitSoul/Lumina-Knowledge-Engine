@@ -7,6 +7,7 @@ from celery.result import AsyncResult
 
 from lumina_brain.config.settings import settings
 from lumina_brain.core.services.document import document_service
+from lumina_brain.core.services.embedding import embedding_service
 from lumina_brain.core.services.minio import minio_service
 from lumina_brain.core.services.qdrant import qdrant_service
 from lumina_brain.tasks.document_tasks import process_document

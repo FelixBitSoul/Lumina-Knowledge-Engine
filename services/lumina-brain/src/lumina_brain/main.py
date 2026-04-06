@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from lumina_brain.api.router import api_router
 from lumina_brain.config.settings import settings
 from lumina_brain.core.services.websocket_manager import websocket_manager
+from lumina_brain.core.services.notification_service import notification_service
 
 app = FastAPI(
     title="Lumina Brain API",
@@ -29,16 +30,15 @@ app.include_router(api_router)
 @app.on_event("startup")
 async def startup_event():
     """Initialize WebSocket manager on application startup"""
-    await websocket_manager.init_redis_pubsub()
-    print("WebSocket manager initialized with Redis Pub/Sub")
+    await websocket_manager.start_notification_listener()
+    print("WebSocket manager initialized with notification listener")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on application shutdown"""
-    if websocket_manager.redis_client:
-        await websocket_manager.redis_client.close()
-    print("WebSocket manager resources cleaned up")
+    await notification_service.close()
+    print("Notification service resources cleaned up")
 
 
 def main():
