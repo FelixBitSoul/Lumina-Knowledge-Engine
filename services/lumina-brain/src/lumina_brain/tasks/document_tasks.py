@@ -4,10 +4,9 @@ from lumina_brain.core.services.minio import minio_service
 from lumina_brain.core.services.document import document_service
 from lumina_brain.core.services.embedding import embedding_service
 from lumina_brain.core.services.qdrant import qdrant_service
+from lumina_brain.core.services.notification_service import notification_service
 from lumina_brain.config.settings import settings
 import hashlib
-import json
-import redis
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -34,7 +33,7 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
         collection: Qdrant collection name
     """
     logger.info(f"[TASK] Starting document processing task for file_id: {file_id}, filename: {filename}, collection: {collection}")
-    
+
     try:
         logger.info(f"[TASK] Step 1/7: Downloading file from MinIO...")
         self.update_state(state="PROGRESS", meta={"status": "downloading", "file_id": file_id})
@@ -79,7 +78,7 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
                     "total": len(chunks)
                 })
                 # Send progress notification
-                send_document_progress_notification(file_id, {
+                notification_service.publish_document_progress(file_id, {
                     "progress": i,
                     "total": len(chunks),
                     "step": f"Generating embeddings ({i}/{len(chunks)})"
@@ -118,7 +117,7 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
 
         logger.info(f"[TASK] Step 6/7: Sending completion notification...")
         # Send Redis Pub/Sub notification
-        send_document_completion_notification(file_id, {
+        notification_service.publish_document_completion(file_id, {
             "filename": filename,
             "chunks_created": len(chunks),
             "collection": collection
@@ -143,7 +142,7 @@ def process_document(self, file_id: str, filename: str, category: str, collectio
     except Exception as e:
         logger.error(f"[TASK] Document processing failed for file_id: {file_id}, error: {str(e)}", exc_info=True)
         # Send failure notification
-        send_document_failure_notification(file_id, str(e))
+        notification_service.publish_document_failure(file_id, str(e))
         self.update_state(state="FAILURE", meta={
             "status": "failed",
             "file_id": file_id,
@@ -185,85 +184,4 @@ def download_file_from_minio(file_id: str, filename: str) -> bytes:
         raise
 
 
-def send_document_completion_notification(file_id: str, metadata: dict = None):
-    """Send document processing completion notification
 
-    Args:
-        file_id: Document ID
-        metadata: Additional metadata
-    """
-    logger.info(f"[NOTIFICATION] Sending completion notification for file_id: {file_id}")
-    try:
-        r = redis.Redis(
-            host=settings.redis.host,
-            port=settings.redis.port,
-            db=settings.redis.db
-        )
-
-        message = {
-            "file_id": file_id,
-            "status": "completed",
-            "timestamp": datetime.now().isoformat(),
-            **(metadata or {})
-        }
-
-        r.publish("document_updates", json.dumps(message))
-        logger.info(f"[NOTIFICATION] Completion notification sent successfully")
-    except Exception as e:
-        logger.error(f"[NOTIFICATION] Failed to send completion notification: {str(e)}", exc_info=True)
-
-
-def send_document_failure_notification(file_id: str, error: str):
-    """Send document processing failure notification
-
-    Args:
-        file_id: Document ID
-        error:
- Error message
-    """
-    logger.info(f"[NOTIFICATION] Sending failure notification for file_id: {file_id}")
-    try:
-        r = redis.Redis(
-            host=settings.redis.host,
-            port=settings.redis.port,
-            db=settings.redis.db
-        )
-
-        message = {
-            "file_id": file_id,
-            "status": "failed",
-            "error": error,
-            "timestamp": datetime.now().isoformat()
-        }
-
-        r.publish("document_updates", json.dumps(message))
-        logger.info(f"[NOTIFICATION] Failure notification sent successfully")
-    except Exception as e:
-        logger.error(f"[NOTIFICATION] Failed to send failure notification: {str(e)}", exc_info=True)
-
-
-def send_document_progress_notification(file_id: str, progress_data: dict):
-    """Send document processing progress notification
-
-    Args:
-        file_id: Document ID
-        progress_data: Progress information
-    """
-    logger.debug(f"[NOTIFICATION] Sending progress notification for file_id: {file_id}, data: {progress_data}")
-    try:
-        r = redis.Redis(
-            host=settings.redis.host,
-            port=settings.redis.port,
-            db=settings.redis.db
-        )
-
-        message = {
-            "file_id": file_id,
-            "status": "processing",
-            "timestamp": datetime.now().isoformat(),
-            **progress_data
-        }
-
-        r.publish("document_updates", json.dumps(message))
-    except Exception as e:
-        logger.error(f"[NOTIFICATION] Failed to send progress notification: {str(e)}", exc_info=True)

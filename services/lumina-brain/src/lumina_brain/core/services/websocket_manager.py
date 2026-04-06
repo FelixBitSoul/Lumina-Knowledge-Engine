@@ -1,10 +1,7 @@
 import logging
 from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict, Set
-import json
-import asyncio
-import redis.asyncio as redis
-from lumina_brain.config.settings import settings
+from lumina_brain.core.services.notification_service import notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +11,6 @@ class ConnectionManager:
         """Initialize WebSocket connection manager"""
         # room: {file_id} -> set of websocket connections
         self.active_connections: Dict[str, Set[WebSocket]] = {}
-        self.redis_client = None
-        self.pubsub = None
         logger.info("[WS MANAGER] WebSocket manager initialized")
 
     async def connect(self, websocket: WebSocket, room: str):
@@ -98,66 +93,21 @@ class ConnectionManager:
         else:
             logger.warning(f"[WS MANAGER] Room not found for broadcast: {room}")
 
-    async def init_redis_pubsub(self):
-        """Initialize Redis Pub/Sub listener"""
-        logger.info(f"[WS MANAGER] Initializing Redis Pub/Sub listener...")
-        try:
-            self.redis_client = redis.Redis(
-                host=settings.redis.host,
-                port=settings.redis.port,
-                db=settings.redis.db
-            )
-            self.pubsub = self.redis_client.pubsub()
-            await self.pubsub.subscribe("document_updates")
-            logger.info(f"[WS MANAGER] Redis Pub/Sub subscribed to channel: document_updates")
-
-            # Start listening task
-            asyncio.create_task(self.listen_for_notifications())
-            logger.info(f"[WS MANAGER] Redis Pub/Sub listener started")
-        except Exception as e:
-            logger.error(f"[WS MANAGER] Failed to initialize Redis Pub/Sub: {str(e)}", exc_info=True)
-
-    async def listen_for_notifications(self):
-        """Listen for Redis Pub/Sub notifications"""
-        logger.info(f"[WS MANAGER] Starting to listen for Redis notifications...")
-        try:
-            async for message in self.pubsub.listen():
-                logger.debug(f"[WS MANAGER] Received Redis message: {message}")
-                if message['type'] == 'message':
-                    try:
-                        data = json.loads(message['data'])
-                        file_id = data.get('file_id')
-                        logger.info(f"[WS MANAGER] Processing notification for file_id: {file_id}, status: {data.get('status')}")
-                        if file_id:
-                            await self.broadcast(data, file_id)
-                    except Exception as e:
-                        logger.error(f"[WS MANAGER] Error processing pubsub message: {str(e)}", exc_info=True)
-        except Exception as e:
-            logger.error(f"[WS MANAGER] Error in Redis listener: {str(e)}", exc_info=True)
-
-    async def publish_notification(self, file_id: str, status: str, **kwargs):
-        """Publish notification to Redis
+    async def handle_notification(self, data: dict):
+        """Handle notification from Redis
 
         Args:
-            file_id: Document ID
-            status: Notification status
-            **kwargs: Additional metadata
+            data: Notification data
         """
-        if self.redis_client:
-            message = {
-                "file_id": file_id,
-                "status": status,
-                **kwargs
-            }
-            logger.info(f"[WS MANAGER] Publishing notification to Redis: {message}")
-            try:
-                await self.redis_client.publish(
-                    "document_updates",
-                    json.dumps(message)
-                )
-                logger.info(f"[WS MANAGER] Notification published successfully")
-            except Exception as e:
-                logger.error(f"[WS MANAGER] Failed to publish notification: {str(e)}", exc_info=True)
+        file_id = data.get('file_id')
+        logger.info(f"[WS MANAGER] Processing notification for file_id: {file_id}, status: {data.get('status')}")
+        if file_id:
+            await self.broadcast(data, file_id)
+
+    async def start_notification_listener(self):
+        """Start listening for notifications"""
+        await notification_service.start_listener(self.handle_notification)
+        logger.info("[WS MANAGER] Notification listener started")
 
 
 # Create global WebSocket manager instance
