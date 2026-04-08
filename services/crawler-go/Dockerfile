@@ -19,8 +19,28 @@ COPY . .
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o crawler ./cmd/crawler
 
+# Development stage
+FROM alpine:latest AS development
+
+WORKDIR /app
+
+# Install ca-certificates for HTTPS requests
+RUN apk --no-cache add ca-certificates curl
+
+# Create directories
+RUN mkdir -p /app/config /app/logs
+
+# Set environment variables
+ENV LOG_LEVEL=debug
+ENV CRAWLER_CONFIG=/app/config/crawler-config.yaml
+
+# Expose no ports (crawler doesn't expose HTTP)
+
+# Run the crawler
+CMD ["./crawler"]
+
 # Production stage
-FROM alpine:latest
+FROM alpine:latest AS production
 
 WORKDIR /app
 

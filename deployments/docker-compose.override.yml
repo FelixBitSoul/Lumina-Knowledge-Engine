@@ -1,0 +1,82 @@
+version: '3.8'
+
+# =============================================================================
+# Lumina Knowledge Engine - Docker Compose Development Override
+# =============================================================================
+# This file is automatically loaded by Docker Compose and extends the base
+# configuration in docker-compose.yaml. It is intended for local development
+# with code mounting and development mode enabled.
+#
+# Features:
+#   - Mounts local code directories for live editing
+#   - Uses development stage from Dockerfiles
+#   - Enables hot reloading for faster development
+#   - Sets appropriate environment variables for development
+#
+# Usage:
+#   docker-compose up -d  # Automatically uses this override file
+#   docker-compose run --rm brain-api pytest  # Run tests
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # Brain API Service - Development Configuration
+  # ===========================================================================
+  brain-api:
+    build:
+      target: development  # Use the development stage from Dockerfile
+    volumes:
+      # Mount local code for live editing
+      - ../services/lumina-brain/src:/app/src:ro
+      - ../services/lumina-brain/tests:/app/tests:ro
+      - ../services/lumina-brain/.env:/app/.env:ro
+    environment:
+      - LOG_LEVEL=debug  # More verbose logging for development
+      - API_RELOAD=True  # Enable FastAPI auto-reload
+    command: python -m uvicorn lumina_brain.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ===========================================================================
+  # Portal Frontend - Development Configuration
+  # ===========================================================================
+  portal:
+    build:
+      target: development  # Use the development stage from Dockerfile
+      args:
+        - NODE_ENV=development
+    volumes:
+      # Mount local code for live editing
+      - ../services/portal-next/src:/app/src:ro
+      - ../services/portal-next/public:/app/public:ro
+      - ../services/portal-next/package.json:/app/package.json:ro
+      - ../services/portal-next/package-lock.json:/app/package-lock.json:ro
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:${HOST_BRAIN_API_PORT}
+    command: npm run dev
+
+  # ===========================================================================
+  # Celery Worker - Development Configuration
+  # ===========================================================================
+  celery-worker:
+    build:
+      target: development  # Use the development stage from Dockerfile
+    volumes:
+      # Mount local code for live editing
+      - ../services/lumina-brain/src:/app/src:ro
+    environment:
+      - LOG_LEVEL=debug  # More verbose logging for development
+    command: celery -A lumina_brain.celery_app worker --loglevel=info --concurrency=2
+
+  # ===========================================================================
+  # Crawler Service - Development Configuration
+  # ===========================================================================
+  crawler:
+    build:
+      target: development  # Use the development stage from Dockerfile
+    volumes:
+      # Mount local code for live editing
+      - ../services/crawler-go/cmd:/app/cmd:ro
+      - ../services/crawler-go/internal:/app/internal:ro
+      - ../services/crawler-go/crawler-config.yaml:/app/config/crawler-config.yaml:ro
+    environment:
+      - LOG_LEVEL=debug  # More verbose logging for development

@@ -32,8 +32,38 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,id=uv-cache,target=/app/.uv-cache \
     uv sync --frozen
 
+# Development stage
+FROM python:3.11-slim as development
+
+WORKDIR /app
+
+# 替换为 Debian 12 (bookworm) 的国内镜像源（以阿里源为例）
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+
+# Install development dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy venv from builder
+COPY --from=builder /app/.venv /app/.venv
+
+# Make sure scripts in venv are usable
+ENV PATH=/app/.venv/bin:$PATH
+# Set Python path to include the project directory
+ENV PYTHONPATH=/app/src
+# Set HF_ENDPOINT environment variable
+ENV HF_ENDPOINT="https://hf-mirror.com"
+
+# Create directories
+RUN mkdir -p /app/models /app/logs
+
+# 注意：开发环境不需要 COPY 代码，因为我们会通过 docker-compose 挂载本地目录
+CMD ["pytest"]
+
 # Production stage
-FROM python:3.11-slim
+FROM python:3.11-slim as production
 
 WORKDIR /app
 

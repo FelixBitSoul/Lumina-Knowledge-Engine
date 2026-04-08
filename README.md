@@ -115,12 +115,15 @@ A modern **RAG (Retrieval-Augmented Generation)** system for semantic document s
 
 ## 🚀 Quick Start
 
-### Option 1: Docker Compose (Recommended)
+### Docker Compose (Recommended)
 
 ```bash
 # Clone repository
 git clone https://github.com/FelixBitSoul/lumina-knowledge-engine.git
 cd lumina-knowledge-engine/deployments
+
+# Create .env file (based on .env.example)
+cp .env.example .env
 
 # Start all services
 docker-compose up -d
@@ -135,26 +138,14 @@ Access the services:
 - **🌐 Portal**: http://localhost:3000
 - **📖 API Docs**: http://localhost:8000/docs
 - **🔍 Search**: Use the portal or API directly
+- **💽 MinIO Console**: http://localhost:9001 (login with minioadmin:minioadmin)
 
-### Option 2: Local Development
+### Start with Crawler
 
 ```bash
-# 1. Start Qdrant
-docker-compose -f deployments/docker-compose.yaml up -d qdrant
-
-# 2. Start Brain API (Python 3.11+)
-cd services/lumina-brain
-uv sync
-uv run start
-
-# 3. Start Portal (Node.js 18+)
-cd services/portal-next
-npm install
-npm run dev
-
-# 4. Optional: Run Crawler (Go 1.24+)
-cd services/crawler-go
-go run ./cmd/crawler
+# Start all services including crawler
+cd deployments
+docker-compose --profile crawler up -d
 ```
 
 ---
@@ -328,22 +319,53 @@ See [Crawler Config Reference](docs/api/crawler-config.md) for detailed YAML con
 
 ### Prerequisites
 
-- Go 1.24+
-- Python 3.11+
-- Node.js 18+
 - Docker 20.10+
+- Docker Compose 1.29+
+- Git
 
-### Local Development Setup
+### Development Workflow
 
 ```bash
-# Install dependencies
-make install
+# Start all services in development mode (uses docker-compose.override.yml)
+cd deployments
+docker-compose up -d
 
-# Run tests
-make test
+# Make code changes
+# Edit files in services/ directory - changes will be automatically reflected due to volume mounting
 
-# Start development servers
-make dev
+# Run tests using Docker Compose
+cd deployments
+# Run Brain API tests
+docker-compose run --rm brain-api pytest
+# Run Crawler tests
+docker-compose run --rm crawler go test ./...
+# Run Portal tests
+docker-compose run --rm portal npm test
+
+# View logs
+cd deployments
+docker-compose logs -f brain-api
+
+# Stop services
+cd deployments
+docker-compose down
+```
+
+### Running Unit Tests (UT)
+
+All unit tests should be run using Docker Compose to ensure consistent environment:
+
+```bash
+# Run all tests
+cd deployments
+docker-compose run --rm brain-api pytest
+docker-compose run --rm crawler go test ./...
+docker-compose run --rm portal npm test
+
+# Run specific test files
+cd deployments
+docker-compose run --rm brain-api pytest tests/test_search.py
+docker-compose run --rm crawler go test ./internal/crawler
 ```
 
 See [Local Setup Guide](docs/deployment/local-setup.md) for detailed instructions.

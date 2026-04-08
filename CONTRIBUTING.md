@@ -305,17 +305,31 @@ Reviewers will check for:
 
 ### Running Tests
 
+All tests should be run using Docker Compose to ensure consistent environment:
+
 ```bash
 # Run all tests
-make test
+cd deployments
+docker-compose run --rm brain-api pytest
+docker-compose run --rm crawler go test ./...
+docker-compose run --rm portal npm test
 
 # Run specific service tests
-make test-crawler
-make test-brain
-make test-portal
+# Brain API tests
+cd deployments
+docker-compose run --rm brain-api pytest
+
+# Crawler tests
+cd deployments
+docker-compose run --rm crawler go test ./...
+
+# Portal tests
+cd deployments
+docker-compose run --rm portal npm test
 
 # Run with coverage
-make test-coverage
+cd deployments
+docker-compose run --rm brain-api pytest --cov=lumina_brain
 ```
 
 ---

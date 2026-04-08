@@ -1,6 +1,6 @@
 # Local Development Setup
 
-This guide provides step-by-step instructions for setting up the Lumina Knowledge Engine in a local development environment.
+This guide provides step-by-step instructions for setting up the Lumina Knowledge Engine in a local development environment using Docker Compose.
 
 ## 📋 Prerequisites
 
@@ -24,37 +24,7 @@ docker --version
 docker-compose --version
 ```
 
-#### 2. Go 1.24+
-Download and install Go:
-- [Official Downloads](https://golang.org/dl/)
-
-Verify installation:
-```bash
-go version
-# Should show: go version go1.24.x linux/amd64
-```
-
-#### 3. Python 3.11+
-Download and install Python:
-- [Python.org](https://www.python.org/downloads/)
-
-Verify installation:
-```bash
-python --version
-# Should show: Python 3.11.x
-```
-
-#### 4. Node.js 18+
-Download and install Node.js:
-- [Node.js.org](https://nodejs.org/)
-
-Verify installation:
-```bash
-node --version
-npm --version
-```
-
-#### 5. Git
+#### 2. Git
 Download and install Git:
 - [Git-scm.com](https://git-scm.com/)
 
@@ -71,58 +41,61 @@ git clone https://github.com/FelixBitSoul/lumina-knowledge-engine.git
 cd lumina-knowledge-engine
 ```
 
-### Step 2: Start Vector Database
-```bash
-# Start Qdrant vector database
-docker-compose -f deployments/docker-compose.yaml up -d qdrant
+### Step 2: Configure Environment
 
-# Verify Qdrant is running
-curl http://localhost:6333/health
+Create a `.env` file in the `deployments` directory:
+
+```bash
+# Qdrant Configuration
+QDRANT_VERSION=v1.10.0
+HOST_QDRANT_REST_PORT=6333
+HOST_QDRANT_GRPC_PORT=6334
+QDRANT_COLLECTION=knowledge_base
+
+# Brain API Configuration
+HOST_BRAIN_API_PORT=8000
+MODEL_NAME=all-MiniLM-L6-v2
+MODEL_CACHE_DIR=/app/models
+
+# Portal Configuration
+HOST_PORTAL_PORT=3000
+
+# Crawler Configuration
+BRAIN_INGEST_URL=http://brain-api:8000/api/ingest
+
+# Logging
+LOG_LEVEL=info
 ```
 
-### Step 3: Setup Brain API
+### Step 3: Start All Services
+
 ```bash
-cd services/lumina-brain
-
-# Install dependencies
-uv sync
-
-# Start the Brain API service
-uv run start
+cd deployments
+docker-compose up -d
 ```
 
-### Step 4: Setup Crawler Service
-```bash
-# Open new terminal
-cd services/crawler-go
+This will start all services including:
+- Qdrant Vector Database
+- Brain API
+- Portal Frontend
+- Redis
+- MinIO
+- Celery Worker
 
-# Install Go dependencies
-go mod download
+### Step 4: Verify Setup
 
-# Create .env file from example
-cp .env.example .env
-
-# Run the crawler (optional - for testing)
-go run ./cmd/crawler
-```
-
-### Step 5: Setup Portal Frontend
-```bash
-# Open new terminal
-cd services/portal-next
-
-# Install dependencies
-npm install
-
-# Start the development server
-npm run dev
-```
-
-### Step 6: Verify Setup
 Open your browser and navigate to:
 - **Portal**: http://localhost:3000
 - **Brain API Docs**: http://localhost:8000/docs
 - **Qdrant Health**: http://localhost:6333/health
+- **MinIO Console**: http://localhost:9001 (login with minioadmin:minioadmin)
+
+### Step 5: Start Crawler (Optional)
+
+```bash
+cd deployments
+docker-compose --profile crawler up -d
+```
 
 ## 📁 Project Structure
 
@@ -204,65 +177,66 @@ tasks:
 
 1. **Start Services**:
    ```bash
-   # Start Qdrant (if not running)
-   docker-compose -f deployments/docker-compose.yaml up -d qdrant
+   # Start all services
+   cd deployments
+   docker-compose up -d
 
-   # Start Brain API
-   cd services/lumina-brain && uv run start
-
-   # Start Portal (in another terminal)
-   cd services/portal-next && npm run dev
+   # Start services with crawler
+   cd deployments
+   docker-compose --profile crawler up -d
    ```
 
 2. **Make Changes**:
-   - Edit source code
-   - Frontend changes auto-reload
-   - Backend changes require restart
+   - Edit source code in the respective service directories
+   - Changes will be reflected when services are restarted
 
-3. **Test Changes**:
+3. **Restart Services** (after code changes):
+   ```bash
+   # Restart specific service
+   cd deployments
+   docker-compose restart brain-api  # Restart Brain API
+   docker-compose restart portal     # Restart Portal
+   docker-compose restart crawler    # Restart Crawler
+   ```
+
+4. **Test Changes**:
    - Access http://localhost:3000
    - Test search functionality
    - Check API documentation at http://localhost:8000/docs
-
-4. **Run Crawler** (optional):
-   ```bash
-   cd services/crawler-go
-   go run ./cmd/crawler
-   ```
 
 ### Code Quality
 
 #### Linting and Formatting
 ```bash
 # Go
-cd services/crawler-go
-go fmt ./...
-go vet ./...
+cd deployments
+docker-compose run --rm crawler go fmt ./...
+docker-compose run --rm crawler go vet ./...
 
 # Python
-cd services/lumina-brain
-flake8 src/
-black src/
+cd deployments
+docker-compose run --rm brain-api flake8 src/
+docker-compose run --rm brain-api black src/
 
 # JavaScript/TypeScript
-cd services/portal-next
-npm run lint
-npm run format
+cd deployments
+docker-compose run --rm portal npm run lint
+docker-compose run --rm portal npm run format
 ```
 
 #### Testing
 ```bash
 # Go
-cd services/crawler-go
-go test ./...
+cd deployments
+docker-compose run --rm crawler go test ./...
 
 # Python
-cd services/lumina-brain
-pytest
+cd deployments
+docker-compose run --rm brain-api pytest
 
 # JavaScript/TypeScript
-cd services/portal-next
-npm test
+cd deployments
+docker-compose run --rm portal npm test
 ```
 
 ## 🐛 Troubleshooting
@@ -275,9 +249,13 @@ npm test
 netstat -tulpn | grep :3000  # Portal
 netstat -tulpn | grep :8000  # Brain API
 netstat -tulpn | grep :6333  # Qdrant
+netstat -tulpn | grep :6379  # Redis
+netstat -tulpn | grep :9000  # MinIO
 
 # Kill processes using ports
 sudo kill -9 <PID>
+
+# Alternatively, update port mappings in .env file
 ```
 
 #### Docker Issues
@@ -286,62 +264,37 @@ sudo kill -9 <PID>
 docker system prune -a
 docker-compose down -v
 docker-compose up -d
-```
 
-#### Python Virtual Environment Issues
-```bash
-# Recreate virtual environment
-cd services/lumina-brain
-rm -rf .venv
-uv venv
-uv sync
-```
-
-#### Node.js Issues
-```bash
-# Clear npm cache
-npm cache clean --force
-
-# Delete node_modules and reinstall
-cd services/portal-next
-rm -rf node_modules package-lock.json
-npm install
-```
-
-#### Go Module Issues
-```bash
-# Refresh Go modules
-cd services/crawler-go
-go clean -modcache
-go mod download
-go mod tidy
+# Check Docker logs
+cd deployments
+docker-compose logs -f
 ```
 
 ### Service-Specific Issues
 
 #### Brain API Won't Start
 ```bash
-# Check Python version
-python --version
+# Check Brain API logs
+cd deployments
+docker-compose logs -f brain-api
 
-# Check dependencies
-pip list | grep fastapi
-pip list | grep qdrant
+# Check if dependencies are installed correctly
+cd deployments
+docker-compose build brain-api
 
-# Check logs
-python main.py --verbose
+# Check Brain API health
+curl http://localhost:8000/health
 ```
 
 #### Crawler Fails
 ```bash
-# Check Go version
-go version
+# Check Crawler logs
+cd deployments
+docker-compose logs -f crawler
 
-# Check configuration
-cd services/crawler-go
-# Edit .env file to use config-test.yaml
-# CRAWLER_CONFIG=config-test.yaml
-go run ./cmd/crawler
+# Check Crawler configuration
+cd deployments
+docker-compose run --rm crawler cat /app/config/crawler-config.yaml
 
 # Check Brain API connectivity
 curl http://localhost:8000/health
@@ -349,13 +302,24 @@ curl http://localhost:8000/health
 
 #### Portal Shows Errors
 ```bash
-# Check Node.js version
-node --version
+# Check Portal logs
+cd deployments
+docker-compose logs -f portal
 
 # Check API connectivity
 curl http://localhost:8000/health
 
 # Check browser console for errors
+```
+
+#### Qdrant Issues
+```bash
+# Check Qdrant logs
+cd deployments
+docker-compose logs -f qdrant
+
+# Check Qdrant health
+curl http://localhost:6333/health
 ```
 
 ## 📊 Performance Tips
@@ -400,32 +364,33 @@ docker-compose top
 
 ### Unit Tests
 ```bash
-# Run all tests
-make test
-
-# Service-specific tests
-cd services/lumina-brain && pytest
-cd services/crawler-go && go test ./...
-cd services/portal-next && npm test
+# Run all tests using Docker Compose
+cd deployments
+docker-compose run --rm brain-api pytest
+docker-compose run --rm crawler go test ./...
+docker-compose run --rm portal npm test
 ```
 
 ### Integration Tests
 ```bash
 # Test API integration
-curl -X POST http://localhost:8000/ingest \
+curl -X POST http://localhost:8000/api/ingest \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com", "title": "Test", "content": "Test content"}'
 
-curl -X GET "http://localhost:8000/search?query=test"
+curl -X GET "http://localhost:8000/api/search?query=test"
 ```
 
 ### End-to-End Tests
 ```bash
-# Test complete workflow
-cd services/crawler-go
-go run ./cmd/crawler
+# Start all services
+cd deployments
+docker-compose --profile crawler up -d
 
-# Then test search in portal at http://localhost:3000
+# Test complete workflow
+# 1. Wait for services to start
+# 2. Access http://localhost:3000 in browser
+# 3. Test search functionality
 ```
 
 ## 📚 Development Resources
