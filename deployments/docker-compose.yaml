@@ -1,22 +1,21 @@
 version: '3.8'
 
 # =============================================================================
-# Lumina Knowledge Engine - Docker Compose Configuration
+# Lumina Knowledge Engine - Docker Compose Base Configuration
 # =============================================================================
-# This configuration provides a complete local deployment of the Lumina
-# Knowledge Engine with all core services.
+# This is the base configuration file that contains common service definitions,
+# networks, volumes, and general environment variables. It is intended to be
+# extended by environment-specific files (docker-compose.override.yml for development
+# and docker-compose.prod.yml for production).
 #
 # Services:
-#   - Qdrant: Vector database for semantic search (ports 6333, 6334)
-#   - Brain API: Python FastAPI service for embedding & search (port 8000)
-#   - Portal: Next.js frontend for user interface (port 3000)
+#   - Redis: Message broker and Pub/Sub
+#   - MinIO: Object storage
+#   - Qdrant: Vector database for semantic search
+#   - Brain API: Python FastAPI service for embedding & search
+#   - Portal: Next.js frontend for user interface
+#   - Celery Worker: Asynchronous document processing
 #   - Crawler (optional): Go-based web crawler for content ingestion
-#
-# Quick Start:
-#   docker-compose up -d          # Start all services
-#   docker-compose up -d qdrant   # Start only Qdrant
-#   docker-compose logs -f        # Follow logs
-#   docker-compose down           # Stop all services
 #
 # Documentation: https://github.com/FelixBitSoul/lumina/docs/deployment/
 # =============================================================================
@@ -138,16 +137,12 @@ services:
     build:
       context: ../services/portal-next
       dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_API_URL=http://localhost:${HOST_BRAIN_API_PORT}
-        - NODE_ENV=production
     container_name: lumina-portal
     hostname: portal
     ports:
       - "${HOST_PORTAL_PORT}:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:${HOST_BRAIN_API_PORT}
-      - NODE_ENV=production
       - PORT=3000
     networks:
       - lumina-network

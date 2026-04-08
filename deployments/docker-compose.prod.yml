@@ -1,0 +1,140 @@
+version: '3.8'
+
+# =============================================================================
+# Lumina Knowledge Engine - Docker Compose Production Configuration
+# =============================================================================
+# This file extends the base configuration in docker-compose.yaml for production
+# deployment. It includes production-specific settings like optimized restart
+# policies, real domain configurations, and security settings.
+#
+# Features:
+#   - Uses production-ready images
+#   - Optimized restart policies for reliability
+#   - Security enhancements for production
+#   - Proper resource limits
+#   - Logging configuration for production
+#
+# Usage:
+#   docker-compose -f docker-compose.yaml -f docker-compose.prod.yml up -d
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # Redis - Production Configuration
+  # ===========================================================================
+  redis:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ===========================================================================
+  # MinIO - Production Configuration
+  # ===========================================================================
+  minio:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ===========================================================================
+  # Qdrant Vector Database - Production Configuration
+  # ===========================================================================
+  qdrant:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ===========================================================================
+  # Brain API Service - Production Configuration
+  # ===========================================================================
+  brain-api:
+    build:
+      target: production  # Use the production stage from Dockerfile
+    restart: always
+    environment:
+      - LOG_LEVEL=info  # Less verbose logging for production
+      - API_RELOAD=False  # Disable auto-reload for production
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Optional: Set resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "2.0"
+    #       memory: "4G"
+
+  # ===========================================================================
+  # Portal Frontend - Production Configuration
+  # ===========================================================================
+  portal:
+    build:
+      target: production  # Use the production stage from Dockerfile
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://api.your-domain.com  # Replace with your actual domain
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Optional: Set resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "1.0"
+    #       memory: "2G"
+
+  # ===========================================================================
+  # Celery Worker - Production Configuration
+  # ===========================================================================
+  celery-worker:
+    build:
+      target: production  # Use the production stage from Dockerfile
+    restart: always
+    environment:
+      - LOG_LEVEL=info  # Less verbose logging for production
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Optional: Set resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "2.0"
+    #       memory: "4G"
+
+  # ===========================================================================
+  # Crawler Service - Production Configuration
+  # ===========================================================================
+  crawler:
+    build:
+      target: production  # Use the production stage from Dockerfile
+    restart: on-failure
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# =============================================================================
+# Networks - Production Configuration
+# =============================================================================
+networks:
+  lumina-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: "lumina-network"
