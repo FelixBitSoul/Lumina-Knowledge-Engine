@@ -47,6 +47,57 @@ async def create_collection(collection: CollectionCreate = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def _get_minio_file_count(collection_name: str, minio_service) -> int:
+    """Get file count from MinIO for a collection"""
+    try:
+        # Build MinIO path prefix
+        prefix = f"raw/collections/{collection_name}/"
+
+        # List all objects with the specified prefix
+        objects = minio_service.client.list_objects(
+            bucket_name=minio_service.bucket,
+            prefix=prefix,
+            recursive=True
+        )
+
+        # Count files
+        file_count = 0
+        for _ in objects:
+            file_count += 1
+
+        return file_count
+    except Exception as e:
+        print(f"Error counting files in MinIO: {e}")
+        return 0
+
+
+def _get_qdrant_vector_count(collection_name: str, qdrant_service) -> int:
+    """Get vector count from Qdrant for a collection"""
+    try:
+        # Get collection information
+        collection_info = qdrant_service.client.get_collection(collection_name=collection_name)
+
+        # Get total vectors (points) in the collection
+        total_vectors = collection_info.points_count
+
+        return total_vectors
+    except Exception as e:
+        print(f"Error getting collection info from Qdrant: {e}")
+        return 0
+
+
+def _initialize_collection_stats(collection_name: str) -> dict:
+    """Initialize collection statistics with default values"""
+    return {
+        "collection": collection_name,
+        "files_count": 0,
+        "total_vectors": 0,
+        "total_chunks": 0,  # Each vector represents a chunk
+        "vector_size": 384,  # Fixed for all-MiniLM-L6-v2 model
+        "distance_function": "cosine"
+    }
+
+
 @router.get("/{collection_name}")
 async def get_collection_details(collection_name: str):
     """
@@ -57,72 +108,29 @@ async def get_collection_details(collection_name: str):
         from lumina_brain.core.services.cache import cache_service
         from lumina_brain.core.services.minio import minio_service
 
-        # 生成缓存键
+        # Generate cache key
         cache_key = f"lumina:stats:{collection_name}"
 
-        # 尝试从缓存获取统计信息
+        # Try to get stats from cache
         cached_stats = cache_service.get(cache_key)
         if cached_stats:
             return cached_stats
 
-        # 初始化统计信息
-        stats = {
-            "collection": collection_name,
-            "files_count": 0,
-            "total_vectors": 0,
-            "total_chunks": 0,  # Each vector represents a chunk
-            "vector_size": 384,  # Fixed for all-MiniLM-L6-v2 model
-            "distance_function": "cosine"
-        }
+        # Initialize stats
+        stats = _initialize_collection_stats(collection_name)
 
-        # 统计 MinIO 中的文件数量
-        try:
-            # 构建 MinIO 路径前缀
-            prefix = f"raw/collections/{collection_name}/"
+        # Get file count from MinIO
+        stats["files_count"] = _get_minio_file_count(collection_name, minio_service)
 
-            # 列出 MinIO 中指定前缀的所有对象
-            objects = minio_service.client.list_objects(
-                bucket_name=minio_service.bucket,
-                prefix=prefix,
-                recursive=True
-            )
+        # Get vector count from Qdrant
+        total_vectors = _get_qdrant_vector_count(collection_name, qdrant_service)
+        stats["total_vectors"] = total_vectors
+        stats["total_chunks"] = total_vectors  # Each vector represents a chunk
 
-            # 计算文件数量
-            file_count = 0
-            for _ in objects:
-                file_count += 1
-
-            stats["files_count"] = file_count
-        except Exception as e:
-            print(f"Error counting files in MinIO: {e}")
-            # 继续执行，不影响其他统计
-
-        # 获取 Qdrant 中的向量数量
-        try:
-            # Get collection information
-            collection_info = qdrant_service.client.get_collection(collection_name=collection_name)
-
-            # Get total vectors (points) in the collection
-            # 使用正确的属性名称 points_count 而不是 vectors_count
-            total_vectors = collection_info.points_count
-
-            stats["total_vectors"] = total_vectors
-            stats["total_chunks"] = total_vectors  # Each vector represents a chunk
-        except Exception as e:
-            print(f"Error getting collection info from Qdrant: {e}")
-            # 继续执行，返回默认值
-
-        # 缓存统计结果，过期时间 60 秒
+        # Cache stats with 60-second expiration
         cache_service.set(cache_key, stats, ttl=60)
 
         return stats
     except Exception as e:
-        # 若 Collection 尚不存在，返回 files_count: 0, vectors_count: 0
-        return {
-            "collection": collection_name,
-            "files_count": 0,
-            "total_vectors": 0,
-            "total_chunks": 0,
-            "vector_size": 384,
-            "distance_function": "cosine"
-        }
+        # If collection doesn't exist, return default values
+        return _initialize_collection_stats(collection_name)

@@ -65,6 +65,29 @@ services:
       retries: 3
 
   # ===========================================================================
+  # PostgreSQL - Relational Database for Metadata
+  # ===========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: lumina-postgres
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=lumina
+      - POSTGRES_USER=lumina
+      - POSTGRES_PASSWORD=lumina123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lumina-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "lumina"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
   # Qdrant Vector Database
   # ===========================================================================
   qdrant:
@@ -115,6 +138,11 @@ services:
       - MINIO_SECURE=false
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=lumina
+      - POSTGRES_USER=lumina
+      - POSTGRES_PASSWORD=lumina123
     volumes:
       - brain_models:/app/models
       - ./logs/brain-api:/app/logs
@@ -182,6 +210,11 @@ services:
       - MINIO_SECURE=false
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=lumina
+      - POSTGRES_USER=lumina
+      - POSTGRES_PASSWORD=lumina123
     volumes:
       - brain_models:/app/models
       - ./logs/celery:/app/logs
@@ -242,4 +275,6 @@ volumes:
   redis_data:
     driver: local
   minio_data:
+    driver: local
+  postgres_data:
     driver: local

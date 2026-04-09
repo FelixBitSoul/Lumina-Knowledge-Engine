@@ -6,6 +6,15 @@ import { X, FileText, Database, Code, ExternalLink, ChevronLeft } from 'lucide-r
 import { useUIStore } from '../store/uiStore';
 import { uploadAPI } from '../services/uploadAPI';
 import { useCollectionDetails, useChunkDetails } from '../services/api';
+import FileDetail from './FileDetail';
+
+// Status style mapping for pipeline steps
+const STATUS_STYLES: Record<string, string> = {
+  completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  processing: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  default: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+};
 
 const Inspector: React.FC = () => {
   const { activeItem, isInspectorOpen, setIsInspectorOpen, setActiveItem } = useUIStore();
@@ -195,12 +204,7 @@ const Inspector: React.FC = () => {
                     <span className="text-gray-500 dark:text-gray-400">
                       {step.charAt(0).toUpperCase() + step.slice(1)}
                     </span>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                      status === 'processing' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                      status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                      'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                    }`}>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${STATUS_STYLES[status as string] || STATUS_STYLES.default}`}>
                       {status}
                     </span>
                   </div>
@@ -316,7 +320,7 @@ const Inspector: React.FC = () => {
       case 'collection':
         return renderCollectionInspector();
       case 'file':
-        return renderFileInspector();
+        return <FileDetail />;
       case 'chunk':
         return renderChunkInspector();
       default:

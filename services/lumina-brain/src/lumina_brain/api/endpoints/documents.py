@@ -1,226 +1,249 @@
-from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
-from datetime import datetime, timedelta
+import logging
+from typing import List, Optional
 
-from lumina_brain.core.services.minio import minio_service
-from lumina_brain.core.services.qdrant import qdrant_service
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import and_
+
+from lumina_brain.core.services.database import get_db
+from lumina_brain.core.services.minio import MinIOService
+from lumina_brain.core.services.qdrant import QdrantService
+from lumina_brain.core.models import Document, DocumentMetadata, DocumentProcessing, DocumentStatus
+from lumina_brain.config.settings import settings
+
+# Initialize services
+minio_service = MinIOService()
+qdrant_service = QdrantService()
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
-@router.delete("/{file_id}")
-async def delete_document(
-    file_id: str,
-    collection: str = Query("knowledge_base", description="Collection name"),
-    filename: Optional[str] = Query(None, description="Original filename"),
+def _build_document_response(doc):
+    """Build document response data"""
+    doc_data = {
+        "id": doc.id,
+        "file_name": doc.file_name,
+        "category": doc.category,
+        "collection": doc.collection,
+        "source_type": doc.source_type.value,
+        "content_hash": doc.content_hash,
+        "minio_path": doc.minio_path,
+        "created_at": doc.created_at,
+        "updated_at": doc.updated_at,
+        "processing": None
+    }
+    
+    # Add processing status if available
+    if doc.processing:
+        doc_data["processing"] = {
+            "status": doc.processing.status.value,
+            "progress": doc.processing.progress,
+            "total": doc.processing.total,
+            "current_step": doc.processing.current_step,
+            "error_message": doc.processing.error_message,
+            "chunks_created": doc.processing.chunks_created,
+            "started_at": doc.processing.started_at,
+            "completed_at": doc.processing.completed_at
+        }
+    
+    return doc_data
+
+
+def _build_list_query(db, collection, category, status):
+    """Build query for listing documents"""
+    query = db.query(Document).outerjoin(DocumentProcessing)
+    
+    # Apply filters
+    if collection:
+        query = query.filter(Document.collection == collection)
+    if category:
+        query = query.filter(Document.category == category)
+    if status:
+        query = query.filter(DocumentProcessing.status == status)
+    
+    return query
+
+
+@router.get("", response_model=List[dict])
+def list_documents(
+    collection: Optional[str] = Query(None, description="Filter by collection"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    status: Optional[DocumentStatus] = Query(None, description="Filter by processing status"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of results"),
+    offset: int = Query(0, ge=0, description="Number of results to skip"),
+    db: Session = Depends(get_db),
+):
+    """
+    List documents with optional filtering
+    """
+    logger.info(f"[DOCUMENTS] Listing documents with filters: collection={collection}, category={category}, status={status}, limit={limit}, offset={offset}")
+    
+    # Build and execute query
+    query = _build_list_query(db, collection, category, status)
+    documents = query.limit(limit).offset(offset).all()
+    
+    # Build response
+    result = [_build_document_response(doc) for doc in documents]
+    
+    logger.info(f"[DOCUMENTS] Found {len(result)} documents")
+    return result
+
+
+def _build_document_detail_response(document):
+    """Build detailed document response with metadata"""
+    # Start with basic document data
+    result = _build_document_response(document)
+    
+    # Add metadata
+    result["metadata"] = []
+    for meta in document.metadata_items:
+        result["metadata"].append({
+            "key": meta.key,
+            "value": meta.value,
+            "created_at": meta.created_at
+        })
+    
+    return result
+
+
+def _get_document_by_id(db, document_id):
+    """Get document by ID with error handling"""
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail=f"Document not found: {document_id}")
+    return document
+
+
+@router.get("/{document_id}", response_model=dict)
+def get_document(
+    document_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Get document by ID
+    """
+    logger.info(f"[DOCUMENTS] Getting document by ID: {document_id}")
+    
+    # Get document
+    document = _get_document_by_id(db, document_id)
+    
+    # Build response
+    result = _build_document_detail_response(document)
+    
+    logger.info(f"[DOCUMENTS] Found document: {document.file_name}")
+    return result
+
+
+@router.post("/{document_id}/metadata")
+def add_document_metadata(
+    document_id: str,
+    key: str,
+    value: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Add metadata to document
+    """
+    logger.info(f"[DOCUMENTS] Adding metadata to document {document_id}: {key} = {value}")
+    
+    # Get document
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail=f"Document not found: {document_id}")
+    
+    # Check if metadata already exists
+    existing_meta = db.query(DocumentMetadata).filter(
+        and_(
+            DocumentMetadata.document_id == document_id,
+            DocumentMetadata.key == key
+        )
+    ).first()
+    
+    if existing_meta:
+        # Update existing metadata
+        existing_meta.value = value
+        db.commit()
+        logger.info(f"[DOCUMENTS] Updated existing metadata: {key} = {value}")
+    else:
+        # Add new metadata
+        new_meta = DocumentMetadata(
+            document_id=document_id,
+            key=key,
+            value=value
+        )
+        db.add(new_meta)
+        db.commit()
+        logger.info(f"[DOCUMENTS] Added new metadata: {key} = {value}")
+    
+    return {"message": "Metadata added successfully"}
+
+
+@router.delete("/{document_id}/metadata/{key}")
+def delete_document_metadata(
+    document_id: str,
+    key: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Delete metadata from document
+    """
+    logger.info(f"[DOCUMENTS] Deleting metadata from document {document_id}: {key}")
+    
+    # Get metadata
+    metadata = db.query(DocumentMetadata).filter(
+        and_(
+            DocumentMetadata.document_id == document_id,
+            DocumentMetadata.key == key
+        )
+    ).first()
+    
+    if not metadata:
+        raise HTTPException(status_code=404, detail=f"Metadata not found: {key}")
+    
+    # Delete metadata
+    db.delete(metadata)
+    db.commit()
+    logger.info(f"[DOCUMENTS] Deleted metadata: {key}")
+    
+    return {"message": "Metadata deleted successfully"}
+
+
+@router.delete("/{document_id}")
+def delete_document(
+    document_id: str,
+    collection: str = Query(..., description="Qdrant collection name"),
+    filename: str = Query(..., description="Original filename"),
+    db: Session = Depends(get_db),
 ):
     """
     Delete document from Qdrant and MinIO
-
-    - Deletes all chunks from Qdrant with the specified file_id
-    - Deletes the original file from MinIO (if filename is provided)
-
-    Args:
-        file_id: Document ID (based on content hash)
-        collection: Qdrant collection name
-        filename: Original filename (required for MinIO deletion)
     """
+    logger.info(f"[DOCUMENTS] Deleting document: {document_id}, collection: {collection}, filename: {filename}")
+    
+    # Get document
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail=f"Document not found: {document_id}")
+    
     try:
         # Delete from Qdrant
-        qdrant_service.delete_by_file_id(file_id, collection)
-
-        # Delete from MinIO if filename is provided
-        if filename:
-            minio_service.delete_file(file_id, filename, collection)
-
-        return {
-            "file_id": file_id,
-            "status": "deleted",
-            "message": "Document deleted successfully",
-        }
+        logger.info(f"[DOCUMENTS] Deleting vectors from Qdrant for document: {document_id}")
+        qdrant_service.delete_by_file_id(document_id, collection)
+        logger.info(f"[DOCUMENTS] Vectors deleted from Qdrant successfully")
+        
+        # Delete from MinIO
+        logger.info(f"[DOCUMENTS] Deleting file from MinIO: {filename}")
+        minio_service.delete_file(document_id, filename, collection)
+        logger.info(f"[DOCUMENTS] File deleted from MinIO successfully")
+        
+        # Delete from database (cascades to metadata and processing)
+        db.delete(document)
+        db.commit()
+        logger.info(f"[DOCUMENTS] Deleted document from database: {document_id}")
+        
+        return {"file_id": document_id, "status": "deleted", "message": "Document deleted successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/{file_id}/preview-url")
-async def get_document_preview_url(
-    file_id: str,
-    filename: str = Query(..., description="Original filename"),
-    collection: str = Query("knowledge_base", description="Collection name"),
-    expiry: int = Query(600, description="Expiry time in seconds (max: 3600)"),
-):
-    """
-    Generate presigned URL for document preview
-
-    - Generates a temporary URL for accessing the original document
-    - URL expires after the specified time
-
-    Args:
-        file_id: Document ID (based on content hash)
-        filename: Original filename
-        collection: Qdrant collection name
-        expiry: Expiry time in seconds (default: 600, max: 3600)
-    """
-    # Limit maximum expiry to 1 hour
-    if expiry > 3600:
-        expiry = 3600
-
-    try:
-        presigned_url = minio_service.generate_presigned_url(
-            file_id=file_id,
-            filename=filename,
-            collection_name=collection,
-            expiry=expiry,
-        )
-
-        return {
-            "file_id": file_id,
-            "filename": filename,
-            "preview_url": presigned_url,
-            "expires_in": expiry,
-            "expires_at": (datetime.now() + timedelta(seconds=expiry)).isoformat(),
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/{file_id}/status")
-async def get_document_status(
-    file_id: str,
-    collection: str = Query("knowledge_base", description="Collection name"),
-):
-    """
-    Check if document exists in Qdrant
-
-    Args:
-        file_id: Document ID (based on content hash)
-        collection: Qdrant collection name
-    """
-    exists = qdrant_service.check_document_exists(file_id, collection)
-
-    if exists:
-        return {
-            "file_id": file_id,
-            "status": "completed",
-            "message": "Document has been indexed",
-        }
-    else:
-        return {
-            "file_id": file_id,
-            "status": "not_found",
-            "message": "Document not found in the index",
-        }
-
-
-@router.get("/chunks/{chunk_id}")
-async def get_chunk_details(
-    chunk_id: str,
-    collection: str = Query("knowledge_base", description="Collection name"),
-):
-    """
-    Get detailed information about a specific chunk.
-    Returns chunk metadata including full content, score, original payload, and source file information.
-    """
-    try:
-        # Get chunk by ID from Qdrant
-        # Convert chunk_id to integer (since Qdrant uses integer IDs)
-        try:
-            point_id = int(chunk_id)
-        except ValueError:
-            # If chunk_id is not an integer, try to generate a hash from it
-            import hashlib
-            point_id = int(hashlib.md5(chunk_id.encode()).hexdigest(), 16) % 10**18
-
-        # Query Qdrant for the specific point
-        from qdrant_client.models import Filter, FieldCondition, MatchValue
-
-        # First, try to get the point directly by ID
-        try:
-            search_result = qdrant_service.client.retrieve(
-                collection_name=collection,
-                ids=[point_id],
-                with_payload=True,
-                with_vectors=False
-            )
-
-            if search_result:
-                point = search_result[0]
-                payload = point.payload or {}
-
-                return {
-                    "chunk_id": str(point.id),
-                    "content": payload.get("content", "No content"),
-                    "score": 0.0,  # Direct retrieval doesn't return score
-                    "payload": payload,
-                    "source_file": {
-                        "file_id": payload.get("file_id", "Unknown"),
-                        "file_name": payload.get("file_name", "Unknown"),
-                        "category": payload.get("category", "Unknown")
-                    }
-                }
-        except Exception as e:
-            # If direct retrieval fails, try searching with a filter
-            pass
-
-        # If direct retrieval fails, search with a filter
-        search_result = qdrant_service.client.query_points(
-            collection_name=collection,
-            query=[0.0] * 384,  # Dummy vector
-            limit=1,
-            with_payload=True,
-            with_vectors=False,
-            query_filter=Filter(
-                must=[
-                    FieldCondition(
-                        key="file_id",
-                        match=MatchValue(value=chunk_id)
-                    )
-                ]
-            )
-        )
-
-        if search_result.points:
-            point = search_result.points[0]
-            payload = point.payload or {}
-
-            return {
-                "chunk_id": str(point.id),
-                "content": payload.get("content", "No content"),
-                "score": point.score,
-                "payload": payload,
-                "source_file": {
-                    "file_id": payload.get("file_id", "Unknown"),
-                    "file_name": payload.get("file_name", "Unknown"),
-                    "category": payload.get("category", "Unknown")
-                }
-            }
-        else:
-            raise HTTPException(status_code=404, detail=f"Chunk not found: {chunk_id}")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/")
-async def list_files(
-    collection: str = Query("knowledge_base", description="Collection name"),
-    limit: int = Query(20, description="Maximum number of files to return"),
-    start_after: Optional[str] = Query(None, description="Object name to start after (for pagination)"),
-):
-    """
-    List files in a collection with pagination
-    Returns a list of files with metadata including file_id, filename, size, uploaded_at, and type
-    """
-    try:
-        # Get files from MinIO with pagination
-        files, next_marker = minio_service.list_files(collection, limit, start_after)
-
-        return {
-            "collection": collection,
-            "files": files,
-            "count": len(files),
-            "next_marker": next_marker
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        db.rollback()
+        logger.error(f"[DOCUMENTS] Failed to delete document: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")

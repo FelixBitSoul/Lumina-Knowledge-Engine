@@ -12,17 +12,29 @@ import { WebSocketMessage } from '../types';
 
 interface FileItem {
   id: string;
-  name: string;
-  size: number;
-  uploadedAt: string;
-  pipeline: {
-    parsed: 'pending' | 'processing' | 'completed' | 'failed';
-    chunked: 'pending' | 'processing' | 'completed' | 'failed';
-    embedded: 'pending' | 'processing' | 'completed' | 'failed';
-    indexed: 'pending' | 'processing' | 'completed' | 'failed';
+  file_name: string;
+  category: string;
+  collection: string;
+  source_type: string;
+  content_hash: string;
+  minio_path: string;
+  created_at: string;
+  updated_at: string;
+  processing?: {
+    status: string;
+    progress: number;
+    total: number;
+    current_step: string;
+    error_message?: string;
+    chunks_created: number;
+    started_at: string;
+    completed_at?: string;
   };
-  error?: string;
-  object_name?: string;
+  metadata?: Array<{
+    key: string;
+    value: string;
+    created_at: string;
+  }>;
 }
 
 const FileManager: React.FC = () => {
@@ -34,31 +46,16 @@ const FileManager: React.FC = () => {
   const [isDeleteMenuOpen, setIsDeleteMenuOpen] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [filesList, setFilesList] = useState<FileItem[]>([]);
-  const [nextMarker, setNextMarker] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const uploadMutation = useUpload();
-  const { data: filesData, isLoading: filesLoading, error: filesError, refetch: refetchFiles } = useFiles(selectedCollection || '');
+  const { data: filesData, isLoading: filesLoading, error: filesError, refetch: refetchFiles } = useFiles(selectedCollection || '', 20, offset);
 
   // 处理文件数据，转换后端返回的格式并合并到文件列表
   React.useEffect(() => {
     if (filesData) {
-      const newFiles = (filesData.files || []).map(file => ({
-        id: file.file_id,
-        name: file.filename,
-        size: file.size,
-        uploadedAt: file.uploaded_at,
-        pipeline: {
-          parsed: 'completed', // 默认状态，实际项目中可能需要根据后端数据调整
-          chunked: 'completed',
-          embedded: 'completed',
-          indexed: 'completed'
-        },
-        error: undefined,
-        object_name: file.object_name
-      }));
-      setFilesList(newFiles);
-      setNextMarker(filesData.next_marker);
+      setFilesList(filesData.files || []);
     }
   }, [filesData]);
 
@@ -71,27 +68,16 @@ const FileManager: React.FC = () => {
 
   // 加载更多文件
   const loadMoreFiles = async () => {
-    if (isLoadingMore || !nextMarker || !selectedCollection) return;
+    if (isLoadingMore || !selectedCollection) return;
 
     setIsLoadingMore(true);
     try {
-      const result = await filesAPI.getFiles(selectedCollection, 20, nextMarker);
-      const newFiles = (result.files || []).map(file => ({
-        id: file.file_id,
-        name: file.filename,
-        size: file.size,
-        uploadedAt: file.uploaded_at,
-        pipeline: {
-          parsed: 'completed',
-          chunked: 'completed',
-          embedded: 'completed',
-          indexed: 'completed'
-        },
-        error: undefined,
-        object_name: file.object_name
-      }));
-      setFilesList(prev => [...prev, ...newFiles]);
-      setNextMarker(result.next_marker);
+      const newOffset = offset + 20;
+      const result = await filesAPI.getFiles(selectedCollection, 20, newOffset);
+      if (result.files && result.files.length > 0) {
+        setFilesList(prev => [...prev, ...result.files]);
+        setOffset(newOffset);
+      }
     } catch (error) {
       console.error('Failed to load more files:', error);
     } finally {
@@ -109,22 +95,20 @@ const FileManager: React.FC = () => {
 
       // 处理 WebSocket 连接
       const handleWebSocketMessage = (message: WebSocketMessage) => {
-        setFiles(prevFiles => {
+        setFilesList(prevFiles => {
           const updatedFiles = prevFiles.map(f =>
             f.id === message.file_id
               ? {
                   ...f,
-                  pipeline: {
-                    parsed: message.step === 'parsing' ? 'processing' :
-                           message.step === 'parsed' ? 'completed' : f.pipeline.parsed,
-                    chunked: message.step === 'chunking' ? 'processing' :
-                           message.step === 'chunked' ? 'completed' : f.pipeline.chunked,
-                    embedded: message.step === 'embedding' ? 'processing' :
-                           message.step === 'embedded' ? 'completed' : f.pipeline.embedded,
-                    indexed: message.step === 'indexing' ? 'processing' :
-                           message.step === 'indexed' ? 'completed' : f.pipeline.indexed,
+                  processing: {
+                    status: message.step === 'completed' ? 'completed' : 'processing',
+                    progress: message.progress || 0,
+                    total: message.total || 100,
+                    current_step: message.step,
+                    error_message: message.error,
+                    chunks_created: 0,
+                    started_at: f.processing?.started_at || new Date().toISOString(),
                   },
-                  error: message.error,
                 }
               : f
           );
@@ -133,16 +117,23 @@ const FileManager: React.FC = () => {
           if (!prevFiles.some(f => f.id === message.file_id)) {
             updatedFiles.push({
               id: message.file_id,
-              name: message.filename || 'Unknown File',
-              size: 0,
-              uploadedAt: new Date().toISOString(),
-              pipeline: {
-                parsed: message.step === 'parsing' ? 'processing' : 'pending',
-                chunked: 'pending',
-                embedded: 'pending',
-                indexed: 'pending',
+              file_name: message.filename || 'Unknown File',
+              category: 'document',
+              collection: selectedCollection || '',
+              source_type: 'document',
+              content_hash: '',
+              minio_path: '',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              processing: {
+                status: 'processing',
+                progress: message.progress || 0,
+                total: message.total || 100,
+                current_step: message.step,
+                error_message: message.error,
+                chunks_created: 0,
+                started_at: new Date().toISOString(),
               },
-              error: message.error,
             });
           }
 
@@ -190,10 +181,10 @@ const FileManager: React.FC = () => {
   };
 
   // 处理文件删除
-  const handleDeleteFile = async (fileId: string, filename: string) => {
+  const handleDeleteFile = async (fileId: string, collection: string, filename: string) => {
     try {
       setDeleteLoading(fileId);
-      await filesAPI.deleteFile(fileId, selectedCollection || '', filename);
+      await filesAPI.deleteFile(fileId, collection, filename);
       // 刷新文件列表
       refetchFiles();
       // 弹出 Toast 提示
@@ -227,14 +218,6 @@ const FileManager: React.FC = () => {
       default:
         return <div className="h-4 w-4 rounded-full bg-gray-300" />;
     }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   if (!selectedCollection) {
@@ -389,13 +372,13 @@ const FileManager: React.FC = () => {
                   File Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Size
+                  Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Uploaded
+                  Created
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Pipeline
+                  Status
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Actions
@@ -414,46 +397,47 @@ const FileManager: React.FC = () => {
                       <FileText className="h-5 w-5 text-blue-500 mr-2" />
                       <div>
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {file.name}
+                          {file.file_name}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {file.category}
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {formatFileSize(file.size)}
+                      {file.source_type}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {new Date(file.uploadedAt).toLocaleString()}
+                      {new Date(file.created_at).toLocaleString()}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-4">
                       <div className="flex flex-col items-center">
                         <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                          Parsed
+                          Status
                         </div>
-                        {renderPipelineStatus(file.pipeline.parsed, file.error)}
+                        {renderPipelineStatus(file.processing?.status || 'pending', file.processing?.error_message)}
                       </div>
                       <div className="flex flex-col items-center">
                         <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                          Chunked
+                          Progress
                         </div>
-                        {renderPipelineStatus(file.pipeline.chunked)}
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {file.processing?.progress || 0}/{file.processing?.total || 100}
+                        </div>
                       </div>
                       <div className="flex flex-col items-center">
                         <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                          Embedded
+                          Chunks
                         </div>
-                        {renderPipelineStatus(file.pipeline.embedded)}
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                          Indexed
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {file.processing?.chunks_created || 0}
                         </div>
-                        {renderPipelineStatus(file.pipeline.indexed)}
                       </div>
                     </div>
                   </td>
@@ -475,7 +459,7 @@ const FileManager: React.FC = () => {
                             onClick={(e) => {
                               e.stopPropagation();
                               if (confirm('Are you sure you want to delete this file?')) {
-                                handleDeleteFile(file.id, file.name);
+                                handleDeleteFile(file.id, file.collection, file.file_name);
                               }
                             }}
                             disabled={deleteLoading === file.id}
@@ -499,22 +483,20 @@ const FileManager: React.FC = () => {
         </div>
 
         {/* Load More Button */}
-        {nextMarker && (
-          <div className="mt-6 flex justify-center">
-            <button
-              onClick={loadMoreFiles}
-              disabled={isLoadingMore}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors"
-            >
-              {isLoadingMore ? (
-                <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-              <span>{isLoadingMore ? 'Loading...' : 'Load More'}</span>
-            </button>
-          </div>
-        )}
+        <div className="mt-6 flex justify-center">
+          <button
+            onClick={loadMoreFiles}
+            disabled={isLoadingMore}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+          >
+            {isLoadingMore ? (
+              <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+            <span>{isLoadingMore ? 'Loading...' : 'Load More'}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

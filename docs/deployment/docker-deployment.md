@@ -124,6 +124,11 @@ services:
       - QDRANT_COLLECTION=knowledge_base
       - MODEL_NAME=all-MiniLM-L6-v2
       - LOG_LEVEL=info
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=lumina
+      - POSTGRES_USER=lumina
+      - POSTGRES_PASSWORD=lumina123
     volumes:
       - ./services/lumina-brain/models:/app/models:ro
       - brain_models:/app/models_cache  # Persistent model cache
@@ -194,12 +199,35 @@ services:
       - lumina-network
     command: redis-server --appendonly yes
 
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: lumina-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=lumina
+      - POSTGRES_USER=lumina
+      - POSTGRES_PASSWORD=lumina123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lumina-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "lumina"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   qdrant_data:
     driver: local
   brain_models:  # Model cache for Brain API
     driver: local
   redis_data:
+    driver: local
+  postgres_data:
     driver: local
 
 networks:
@@ -229,6 +257,9 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements and install Python packages
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install PostgreSQL dependencies
+RUN pip install --no-cache-dir psycopg2-binary sqlalchemy
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash app
