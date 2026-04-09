@@ -2,7 +2,7 @@ from minio import Minio
 
 # Initialize MinIO client
 client = Minio(
-    'localhost:9000',
+    'minio:9000',
     access_key='minioadmin',
     secret_key='minioadmin',
     secure=False

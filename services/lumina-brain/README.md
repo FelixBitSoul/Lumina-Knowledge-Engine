@@ -94,7 +94,7 @@ LLM_MODEL_NAME=deepseek-chat
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_DB=0
-MINIO_ENDPOINT=localhost:9000
+MINIO_ENDPOINT=minio:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_BUCKET=lumina-documents
@@ -407,7 +407,7 @@ lumina-brain/
 | `REDIS_HOST` | ✅ | `localhost` | Redis host for Celery |
 | `REDIS_PORT` | ✅ | `6379` | Redis port for Celery |
 | `REDIS_DB` | ❌ | `0` | Redis database for Celery |
-| `MINIO_ENDPOINT` | ✅ | `localhost:9000` | MinIO endpoint |
+| `MINIO_ENDPOINT` | ✅ | `minio:9000` | MinIO endpoint |
 | `MINIO_ACCESS_KEY` | ✅ | - | MinIO access key |
 | `MINIO_SECRET_KEY` | ✅ | - | MinIO secret key |
 | `MINIO_BUCKET` | ❌ | `lumina-documents` | MinIO bucket name |

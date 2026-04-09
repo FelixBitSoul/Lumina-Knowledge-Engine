@@ -47,7 +47,7 @@ class ModelSettings(BaseSettings):
 
 class QdrantSettings(BaseSettings):
     """Qdrant configuration settings"""
-    host: str = "localhost"
+    host: str = "qdrant"
     port: int = 6333
     collection: str = "knowledge_base"
 
@@ -69,7 +69,7 @@ class LogSettings(BaseSettings):
 
 class RedisSettings(BaseSettings):
     """Redis configuration settings"""
-    host: str = "localhost"
+    host: str = "redis"
     port: int = 6379
     db: int = 0
 
@@ -81,7 +81,7 @@ class RedisSettings(BaseSettings):
 
 class MinIOSettings(BaseSettings):
     """MinIO configuration settings"""
-    endpoint: str = "localhost:9000"
+    endpoint: str = "minio:9000"
     access_key: str = "minioadmin"
     secret_key: str = "minioadmin"
     bucket: str = "lumina-documents"
@@ -96,8 +96,8 @@ class MinIOSettings(BaseSettings):
 
 class CelerySettings(BaseSettings):
     """Celery configuration settings"""
-    broker_url: str = "redis://localhost:6379/0"
-    result_backend: str = "redis://localhost:6379/1"
+    broker_url: str = "redis://redis:6379/0"
+    result_backend: str = "redis://redis:6379/1"
     worker_concurrency: int = 4
 
     class Config:
