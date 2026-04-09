@@ -4,6 +4,13 @@ import { Button } from './ui/button';
 import { useWebSocket } from '../hooks/useUpload';
 import { WebSocketMessage } from '../types';
 
+// Status title mapping
+const STATUS_TITLES: Record<string, string> = {
+  completed: 'Processing Complete',
+  failed: 'Processing Failed',
+  default: 'Processing Document',
+};
+
 interface ProcessingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -118,9 +125,7 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
                 {getStatusIcon()}
               </div>
               <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
-                {status === 'completed' ? 'Processing Complete' :
-                 status === 'failed' ? 'Processing Failed' :
-                 'Processing Document'}
+                {STATUS_TITLES[status] || STATUS_TITLES.default}
               </h3>
             </div>
             <button

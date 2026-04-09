@@ -106,6 +106,44 @@ class CelerySettings(BaseSettings):
         extra = "allow"
 
 
+class PostgresSettings(BaseSettings):
+    """PostgreSQL configuration settings"""
+    host: str = "postgres"
+    port: int = 5432
+    db: str = "lumina"
+    user: str = "lumina"
+    password: str = "lumina123"
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "allow"
+
+
+class UploadSettings(BaseSettings):
+    """Upload configuration settings"""
+    allowed_extensions: List[str] = ["pdf", "md", "markdown", "txt", "text"]
+    max_file_size: int = 10 * 1024 * 1024  # 10MB
+    default_collection: str = "knowledge_base"
+    chunk_size: int = 600
+    chunk_overlap: int = 60
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "allow"
+
+        @classmethod
+        def parse_env_var(cls, field_name, raw_val):
+            if field_name == "allowed_extensions" and isinstance(raw_val, str):
+                # Split comma-separated string into list
+                return [ext.strip() for ext in raw_val.split(",")]
+            elif field_name == "max_file_size" and isinstance(raw_val, str):
+                # Parse string to int
+                return int(raw_val)
+            return raw_val
+
+
 class Settings(BaseSettings):
     """Application configuration settings"""
     ENVIRONMENT: str = "dev"
@@ -117,6 +155,8 @@ class Settings(BaseSettings):
     redis: RedisSettings = RedisSettings()
     minio: MinIOSettings = MinIOSettings()
     celery: CelerySettings = CelerySettings()
+    postgres: PostgresSettings = PostgresSettings()
+    upload: UploadSettings = UploadSettings()
 
     class Config:
         env_file = ".env"
@@ -139,6 +179,8 @@ def get_settings() -> Settings:
         redis=RedisSettings(**config_dict.get("redis", {})),
         minio=MinIOSettings(**config_dict.get("minio", {})),
         celery=CelerySettings(**config_dict.get("celery", {})),
+        postgres=PostgresSettings(**config_dict.get("postgres", {})),
+        upload=UploadSettings(**config_dict.get("upload", {})),
     )
 
 

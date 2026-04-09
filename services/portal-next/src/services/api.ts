@@ -108,27 +108,67 @@ export const chunksAPI = {
 };
 
 export const filesAPI = {
-  getFiles: async (collection: string, limit: number = 20, start_after: string | null = null): Promise<{ files: any[], next_marker: string | null }> => {
+  getFiles: async (collection: string, limit: number = 20, offset: number = 0): Promise<{ files: any[] }> => {
     try {
       const params = new URLSearchParams();
-      params.append('collection', collection);
-      params.append('limit', limit.toString());
-      if (start_after) {
-        params.append('start_after', start_after);
+      if (collection) {
+        params.append('collection', collection);
       }
+      params.append('limit', limit.toString());
+      params.append('offset', offset.toString());
       const response = await fetch(`http://localhost:8000/documents?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch files');
       const data = await response.json();
       return {
-        files: data.files,
-        next_marker: data.next_marker
+        files: data
       };
     } catch (error) {
       console.error('Failed to fetch files:', error);
       throw error;
     }
   },
-  deleteFile: async (fileId: string, collection: string, filename: string): Promise<{ success: boolean }> => {
+  getFile: async (fileId: string): Promise<any> => {
+    try {
+      const response = await fetch(`http://localhost:8000/documents/${fileId}`);
+      if (!response.ok) throw new Error('Failed to fetch file details');
+      return response.json();
+    } catch (error) {
+      console.error('Failed to fetch file details:', error);
+      throw error;
+    }
+  },
+  addMetadata: async (fileId: string, key: string, value: string): Promise<{ message: string }> => {
+    try {
+      const params = new URLSearchParams();
+      params.append('key', key);
+      params.append('value', value);
+      const response = await fetch(`http://localhost:8000/documents/${fileId}/metadata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+      if (!response.ok) throw new Error('Failed to add metadata');
+      return response.json();
+    } catch (error) {
+      console.error('Failed to add metadata:', error);
+      throw error;
+    }
+  },
+  deleteMetadata: async (fileId: string, key: string): Promise<{ message: string }> => {
+    try {
+      const response = await fetch(`http://localhost:8000/documents/${fileId}/metadata/${key}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete metadata');
+      return response.json();
+    } catch (error) {
+      console.error('Failed to delete metadata:', error);
+      throw error;
+    }
+  },
+  deleteFile: async (fileId: string, collection: string, filename: string): Promise<{ file_id: string; status: string; message: string }> => {
     try {
       const params = new URLSearchParams();
       params.append('collection', collection);
@@ -191,11 +231,20 @@ export const useChunkDetails = (chunkId: string, collection: string) => {
   });
 };
 
-export const useFiles = (collection: string, limit: number = 20, start_after: string | null = null) => {
+export const useFiles = (collection: string, limit: number = 20, offset: number = 0) => {
   return useQuery({
-    queryKey: ['files', collection, limit, start_after],
-    queryFn: () => filesAPI.getFiles(collection, limit, start_after),
+    queryKey: ['files', collection, limit, offset],
+    queryFn: () => filesAPI.getFiles(collection, limit, offset),
     enabled: !!collection,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useFileDetails = (fileId: string) => {
+  return useQuery({
+    queryKey: ['fileDetails', fileId],
+    queryFn: () => filesAPI.getFile(fileId),
+    enabled: !!fileId,
     staleTime: 5 * 60 * 1000,
   });
 };
