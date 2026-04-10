@@ -2,6 +2,7 @@ import { UploadResponse, TaskStatus } from '../types';
 
 export const uploadAPI = {
   uploadDocument: async (file: File, category: string, collection?: string): Promise<UploadResponse> => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const formData = new FormData();
     formData.append('file', file);
     formData.append('category', category);
@@ -9,7 +10,7 @@ export const uploadAPI = {
       formData.append('collection', collection);
     }
 
-    const response = await fetch('http://localhost:8000/upload', {
+    const response = await fetch(`${apiUrl}/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -23,7 +24,8 @@ export const uploadAPI = {
   },
 
   getTaskStatus: async (taskId: string): Promise<TaskStatus> => {
-    const response = await fetch(`http://localhost:8000/upload/tasks/${taskId}`);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const response = await fetch(`${apiUrl}/upload/tasks/${taskId}`);
     
     if (!response.ok) {
       const error = await response.json();
@@ -34,7 +36,8 @@ export const uploadAPI = {
   },
 
   getPreviewUrl: async (fileId: string, filename: string, expiry: number = 600): Promise<{ preview_url: string; expires_in: number; expires_at: string }> => {
-    const response = await fetch(`http://localhost:8000/documents/${fileId}/preview-url?filename=${encodeURIComponent(filename)}&expiry=${expiry}`);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const response = await fetch(`${apiUrl}/documents/${fileId}/preview-url?filename=${encodeURIComponent(filename)}&expiry=${expiry}`);
     
     if (!response.ok) {
       const error = await response.json();

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { CheckCircle, FileText, Link, Upload, AlertCircle, ChevronDown, MoreVertical, Trash2 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
@@ -46,16 +46,24 @@ const FileManager: React.FC = () => {
   const [isDeleteMenuOpen, setIsDeleteMenuOpen] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [filesList, setFilesList] = useState<FileItem[]>([]);
-  const [offset, setOffset] = useState(0);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [hasNewFile, setHasNewFile] = useState(false);
+  const wsConnectionsRef = React.useRef<Record<string, {
+    ws: WebSocket;
+    reconnectAttempts: number;
+    lastReconnectTime: number;
+  }>>({});
 
   const uploadMutation = useUpload();
-  const { data: filesData, isLoading: filesLoading, error: filesError, refetch: refetchFiles } = useFiles(selectedCollection || '', 20, offset);
+  const { data: filesData, isLoading: filesLoading, error: filesError, refetch: refetchFiles } = useFiles(selectedCollection || '', pageSize, (currentPage - 1) * pageSize);
 
   // 处理文件数据，转换后端返回的格式并合并到文件列表
   React.useEffect(() => {
     if (filesData) {
       setFilesList(filesData.files || []);
+      setTotalItems(filesData.total || 0);
     }
   }, [filesData]);
 
@@ -66,24 +74,236 @@ const FileManager: React.FC = () => {
     }
   }, [uploadMutation.isSuccess, refetchFiles]);
 
-  // 加载更多文件
-  const loadMoreFiles = async () => {
-    if (isLoadingMore || !selectedCollection) return;
-
-    setIsLoadingMore(true);
-    try {
-      const newOffset = offset + 20;
-      const result = await filesAPI.getFiles(selectedCollection, 20, newOffset);
-      if (result.files && result.files.length > 0) {
-        setFilesList(prev => [...prev, ...result.files]);
-        setOffset(newOffset);
+  // 消息处理函数
+  const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
+    setFilesList(prevFiles => {
+      // 检查是否是新文件
+      if (!prevFiles.some(f => f.id === message.file_id)) {
+        // 处理新增文件
+        if (currentPage === 1) {
+          setHasNewFile(true);
+        }
       }
-    } catch (error) {
-      console.error('Failed to load more files:', error);
-    } finally {
-      setIsLoadingMore(false);
+      
+      // 更新文件状态
+      return prevFiles.map(f => {
+        if (f.id === message.file_id) {
+          return {
+            ...f,
+            processing: {
+              status: message.step === 'completed' ? 'completed' : message.status || 'processing',
+              progress: message.progress || 0,
+              total: message.total || 100,
+              current_step: message.step || '',
+              error_message: message.error,
+              chunks_created: message.chunks_created || 0,
+              started_at: f.processing?.started_at || new Date().toISOString(),
+              completed_at: message.step === 'completed' ? new Date().toISOString() : f.processing?.completed_at,
+            },
+          };
+        }
+        return f;
+      });
+    });
+  }, [currentPage]);
+
+  // 心跳检测
+  const startHeartbeat = useCallback((collection: string, ws: WebSocket) => {
+    const heartbeatInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 30000); // 每30秒发送一次心跳
+    
+    // 监听 pong 响应
+    const originalOnMessage = ws.onmessage;
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === 'pong') {
+          console.log(`[WebSocket] Heartbeat received for collection ${collection}`);
+        }
+      } catch (error) {
+        // 非 JSON 消息，交给原始处理函数
+      }
+      
+      // 调用原始消息处理函数，确保this上下文正确
+      if (originalOnMessage) {
+        originalOnMessage.call(ws, event);
+      }
+    };
+    
+    return () => clearInterval(heartbeatInterval);
+  }, []);
+
+  // 重连逻辑
+  const reconnectToCollection = useCallback((collection: string) => {
+    const maxReconnectAttempts = 5;
+    const baseDelay = 1000; // 1秒
+    
+    const connection = wsConnectionsRef.current[collection];
+    if (!connection) return;
+    
+    if (connection.reconnectAttempts >= maxReconnectAttempts) {
+      console.error(`[WebSocket] Max reconnect attempts reached for collection ${collection}`);
+      return;
     }
-  };
+    
+    // 指数退避策略
+    const delay = baseDelay * Math.pow(2, connection.reconnectAttempts);
+    setTimeout(() => {
+      console.log(`[WebSocket] Reconnecting to collection ${collection}...`);
+      
+      // 构建 WebSocket URL
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const wsProtocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
+      const wsHost = apiUrl.replace(/^https?:\/\//, '');
+      const wsUrl = `${wsProtocol}://${wsHost}/ws/collection/${encodeURIComponent(collection)}`;
+      
+      // 创建新连接
+      const ws = new WebSocket(wsUrl);
+      
+      // 设置消息处理
+      ws.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data);
+          handleWebSocketMessage(message);
+        } catch (error) {
+          console.error('[WebSocket] Error parsing message:', error);
+        }
+      };
+      
+      // 启动心跳检测
+      const cleanupHeartbeat = startHeartbeat(collection, ws);
+      
+      // 监听关闭事件，实现重连
+      ws.onclose = (event) => {
+        // 清理心跳检测
+        cleanupHeartbeat();
+        console.log(`[WebSocket] Connection closed for collection ${collection}. Code: ${event.code}, Reason: ${event.reason}`);
+        
+        // 更新连接状态
+        wsConnectionsRef.current[collection] = {
+          ...wsConnectionsRef.current[collection],
+          reconnectAttempts: (wsConnectionsRef.current[collection]?.reconnectAttempts || 0) + 1,
+          lastReconnectTime: Date.now()
+        };
+        
+        // 触发重连
+        reconnectToCollection(collection);
+      };
+      
+      // 监听错误事件
+      ws.onerror = (error) => {
+        console.error(`[WebSocket] Error for collection ${collection}:`, error);
+      };
+      
+      // 监听打开事件
+      ws.onopen = () => {
+        console.log(`[WebSocket] Connected to collection ${collection}`);
+      };
+      
+      // 保存连接
+      wsConnectionsRef.current[collection] = {
+        ws,
+        reconnectAttempts: 0,
+        lastReconnectTime: Date.now()
+      };
+      
+      // 重新请求文件列表，防止错过断线期间的更新
+      refetchFiles();
+    }, delay);
+  }, [refetchFiles, startHeartbeat, handleWebSocketMessage]);
+
+  // 按 collection 建立 WebSocket 连接
+  const connectToCollection = useCallback((collection: string): WebSocket => {
+    // 如果已经存在该 collection 的连接，直接返回
+    if (wsConnectionsRef.current[collection]?.ws && wsConnectionsRef.current[collection].ws.readyState === WebSocket.OPEN) {
+      return wsConnectionsRef.current[collection].ws;
+    }
+
+    // 构建 WebSocket URL
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const wsProtocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
+    const wsHost = apiUrl.replace(/^https?:\/\//, '');
+    const wsUrl = `${wsProtocol}://${wsHost}/ws/collection/${encodeURIComponent(collection)}`;
+    
+    // 创建新连接
+    const ws = new WebSocket(wsUrl);
+    
+    // 设置消息处理
+    ws.onmessage = (event) => {
+      try {
+        const message: WebSocketMessage = JSON.parse(event.data);
+        handleWebSocketMessage(message);
+      } catch (error) {
+        console.error('[WebSocket] Error parsing message:', error);
+      }
+    };
+    
+    // 启动心跳检测
+    const cleanupHeartbeat = startHeartbeat(collection, ws);
+    
+    // 监听关闭事件，实现重连
+    ws.onclose = (event) => {
+      // 清理心跳检测
+      cleanupHeartbeat();
+      console.log(`[WebSocket] Connection closed for collection ${collection}. Code: ${event.code}, Reason: ${event.reason}`);
+      
+      // 更新连接状态
+      wsConnectionsRef.current[collection] = {
+        ...wsConnectionsRef.current[collection],
+        reconnectAttempts: (wsConnectionsRef.current[collection]?.reconnectAttempts || 0) + 1,
+        lastReconnectTime: Date.now()
+      };
+      
+      // 触发重连
+      reconnectToCollection(collection);
+    };
+    
+    // 监听错误事件
+    ws.onerror = (error) => {
+      console.error(`[WebSocket] Error for collection ${collection}:`, error);
+    };
+    
+    // 监听打开事件
+    ws.onopen = () => {
+      console.log(`[WebSocket] Connected to collection ${collection}`);
+    };
+    
+    // 保存连接
+    wsConnectionsRef.current[collection] = {
+      ws,
+      reconnectAttempts: 0,
+      lastReconnectTime: Date.now()
+    };
+    
+    return ws;
+  }, [reconnectToCollection, startHeartbeat, handleWebSocketMessage]);
+
+  // 当选择的collection变化时，连接到对应的WebSocket
+  React.useEffect(() => {
+    if (selectedCollection) {
+      connectToCollection(selectedCollection);
+    }
+  }, [selectedCollection, connectToCollection]);
+
+  // 刷新列表
+  const handleRefresh = useCallback(() => {
+    refetchFiles();
+    setHasNewFile(false);
+  }, [refetchFiles]);
+
+
+
+  // 分页控制
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+    setHasNewFile(false); // 切换页面时重置提醒
+  }, []);
+
+  // 计算总页数
+  const totalPages = Math.ceil(totalItems / pageSize);
 
   const handleFileUpload = useCallback(async (file: File) => {
     try {
@@ -93,64 +313,14 @@ const FileManager: React.FC = () => {
         collection: selectedCollection || '',
       });
 
-      // 处理 WebSocket 连接
-      const handleWebSocketMessage = (message: WebSocketMessage) => {
-        setFilesList(prevFiles => {
-          const updatedFiles = prevFiles.map(f =>
-            f.id === message.file_id
-              ? {
-                  ...f,
-                  processing: {
-                    status: message.step === 'completed' ? 'completed' : 'processing',
-                    progress: message.progress || 0,
-                    total: message.total || 100,
-                    current_step: message.step,
-                    error_message: message.error,
-                    chunks_created: 0,
-                    started_at: f.processing?.started_at || new Date().toISOString(),
-                  },
-                }
-              : f
-          );
-
-          // 如果是新文件，添加到列表
-          if (!prevFiles.some(f => f.id === message.file_id)) {
-            updatedFiles.push({
-              id: message.file_id,
-              file_name: message.filename || 'Unknown File',
-              category: 'document',
-              collection: selectedCollection || '',
-              source_type: 'document',
-              content_hash: '',
-              minio_path: '',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              processing: {
-                status: 'processing',
-                progress: message.progress || 0,
-                total: message.total || 100,
-                current_step: message.step,
-                error_message: message.error,
-                chunks_created: 0,
-                started_at: new Date().toISOString(),
-              },
-            });
-          }
-
-          return updatedFiles;
-        });
-      };
-
-      const { connect } = useWebSocket(result.websocket_url, handleWebSocketMessage);
-      const ws = connect();
-
-      return () => {
-        ws.close();
-      };
+      // 确保当前 collection 有 WebSocket 连接
+      if (selectedCollection) {
+        connectToCollection(selectedCollection);
+      }
     } catch (error) {
       console.error('Upload failed:', error);
     }
-  }, [uploadMutation, selectedCollection]);
+  }, [uploadMutation, selectedCollection, connectToCollection]);
 
   const { getRootProps, getInputProps } = useDropzone({
     accept: { 'application/pdf': ['.pdf'], 'text/plain': ['.txt'], 'text/markdown': ['.md', '.markdown'] },
@@ -185,8 +355,16 @@ const FileManager: React.FC = () => {
     try {
       setDeleteLoading(fileId);
       await filesAPI.deleteFile(fileId, collection, filename);
-      // 刷新文件列表
-      refetchFiles();
+      // 从当前页列表中移除
+      setFilesList(prevFiles => prevFiles.filter(f => f.id !== fileId));
+      // 处理删除后分页逻辑（如当前页为空且不是第一页，返回上一页）
+      setFilesList(prevFiles => {
+        if (prevFiles.length === 0 && currentPage > 1) {
+          setCurrentPage(prevPage => prevPage - 1);
+          return [];
+        }
+        return prevFiles;
+      });
       // 弹出 Toast 提示
       alert('File deleted successfully');
     } catch (error) {
@@ -246,6 +424,7 @@ const FileManager: React.FC = () => {
           <div
             {...getRootProps()}
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-700'}`}
+            data-testid="file-dropzone"
           >
             <input {...getInputProps()} />
             <FileText className="h-12 w-12 text-blue-500 mb-4" />
@@ -482,21 +661,43 @@ const FileManager: React.FC = () => {
           </table>
         </div>
 
-        {/* Load More Button */}
-        <div className="mt-6 flex justify-center">
-          <button
-            onClick={loadMoreFiles}
-            disabled={isLoadingMore}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors"
-          >
-            {isLoadingMore ? (
-              <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-            <span>{isLoadingMore ? 'Loading...' : 'Load More'}</span>
-          </button>
-        </div>
+        {/* 新文件提醒 */}
+        {hasNewFile && (
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex justify-between items-center">
+            <p className="text-blue-700 dark:text-blue-300">
+              有新文件，点击刷新查看
+            </p>
+            <button
+              onClick={handleRefresh}
+              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+            >
+              刷新
+            </button>
+          </div>
+        )}
+
+        {/* 分页控件 */}
+        {totalPages > 1 && (
+          <div className="mt-6 flex justify-center items-center gap-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              上一页
+            </button>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              第 {currentPage} 页，共 {totalPages} 页
+            </span>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              下一页
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

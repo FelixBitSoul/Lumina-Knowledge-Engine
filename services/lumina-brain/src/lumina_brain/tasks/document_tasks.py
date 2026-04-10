@@ -72,7 +72,7 @@ def _generate_embedding_points(chunks, file_id, collection, source_type, filenam
                 "progress": i,
                 "total": len(chunks),
                 "step": f"Generating embeddings ({i}/{len(chunks)})"
-            })
+            }, collection)
 
         # Generate embedding
         vector = embedding_service.encode(chunk)
@@ -213,7 +213,7 @@ def _update_task_status(task, processing, step_name, status_message, progress=No
     _update_processing_status(processing, None, status_message.lower().replace(" ", "_"), progress, total)
 
 
-def _handle_processing_error(processing, file_id, error, task):
+def _handle_processing_error(processing, file_id, error, task, collection=None):
     """Handle processing error and update status"""
     logger.error(f"[TASK] Document processing failed for file_id: {file_id}, error: {str(error)}", exc_info=True)
     # Update status to failed in database
@@ -223,7 +223,7 @@ def _handle_processing_error(processing, file_id, error, task):
         processing.db.commit()
         logger.info(f"[TASK] Status updated to failed in PostgreSQL")
     # Send failure notification
-    notification_service.publish_document_failure(file_id, str(error))
+    notification_service.publish_document_failure(file_id, str(error), collection)
     task.update_state(state="FAILURE", meta={
         "status": "failed",
         "file_id": file_id,
@@ -336,7 +336,7 @@ def process_document(self, file_id: str, collection: str = "knowledge_base", sou
         return _finalize_processing(self, processing, file_id, filename, collection, chunks)
 
     except Exception as e:
-        _handle_processing_error(processing, file_id, e, self)
+        _handle_processing_error(processing, file_id, e, self, collection)
     finally:
         db.close()
 

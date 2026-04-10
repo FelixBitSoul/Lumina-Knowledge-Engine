@@ -4,27 +4,27 @@ from lumina_brain.core.services.websocket_manager import websocket_manager
 router = APIRouter()
 
 
-@router.websocket("/ws/{file_id}")
-async def websocket_endpoint(websocket: WebSocket, file_id: str):
+@router.websocket("/ws/collection/{collection}")
+async def websocket_collection_endpoint(websocket: WebSocket, collection: str):
     """
-    WebSocket endpoint for real-time document processing notifications
+    WebSocket endpoint for real-time document processing notifications by collection
     
-    - Frontend should connect to this endpoint after uploading a file
-    - Connection will join a room named after the file_id
-    - When document processing is complete, real-time notifications will be sent
+    - Frontend should connect to this endpoint to receive updates for all files in a collection
+    - Connection will join a room named after the collection
+    - When any document in the collection is processed, real-time notifications will be sent
     
     Args:
         websocket: WebSocket connection
-        file_id: Document ID (based on content hash)
+        collection: Collection name
     """
-    await websocket_manager.connect(websocket, file_id)
+    await websocket_manager.connect(websocket, f"collection:{collection}")
     
     # Send connection success message
     await websocket_manager.send_personal_message(
         {
             "status": "connected",
-            "message": f"Connected to room {file_id}",
-            "file_id": file_id
+            "message": f"Connected to collection room {collection}",
+            "collection": collection
         },
         websocket
     )
@@ -43,4 +43,4 @@ async def websocket_endpoint(websocket: WebSocket, file_id: str):
                 websocket
             )
     except WebSocketDisconnect:
-        await websocket_manager.disconnect(websocket, file_id)
+        await websocket_manager.disconnect(websocket, f"collection:{collection}")

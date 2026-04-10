@@ -19,6 +19,8 @@ Built with [Next.js 15](https://nextjs.org), [Tailwind CSS v4](https://tailwindc
 - **📋 Processing Modal**: Interactive progress tracking for document uploads
 - **🚀 Async Uploads**: Non-blocking file uploads with background processing
 - **📁 File Management**: File listing, pagination, and deletion functionality
+- **🔄 WebSocket Collection Subscription**: Real-time updates per collection
+- **📄 New File Notifications**: Toast notifications for new files
 - **📄 Collection Management**: Create and manage vector collections
 
 ---
@@ -180,7 +182,7 @@ The Portal connects to the Brain API for:
 - **List Files**: `GET /documents?collection={collection}&limit={limit}&start_after={marker}`
 - **Document Preview**: `GET /documents/{file_id}/preview-url?filename={filename}&expiry={expiry}`
 - **Document Delete**: `DELETE /documents/{file_id}?collection={collection}&filename={filename}`
-- **WebSocket Notifications**: `WebSocket /ws/{file_id}`
+- **WebSocket Notifications**: `WebSocket /ws/collection/{collection}` (per collection subscription)
 - **Chat API**: `POST /chat` with message and context
 
 ### Search Flow

@@ -185,7 +185,7 @@ curl -X POST http://localhost:8000/upload \
   "category": "technical",
   "collection": "documents",
   "status": "pending",
-  "websocket_url": "ws://localhost:8000/ws/b2e1bfd0-921d-7586-9436-589beae56676",
+  "websocket_url": "ws://localhost:8000/ws/collection/documents",
   "message": "Document uploaded successfully. Processing in background."
 }
 ```
@@ -322,9 +322,54 @@ curl -X DELETE "http://localhost:8000/documents/b2e1bfd0-921d-7586-9436-589beae5
 
 ---
 
-### 🌐 `WebSocket /ws/{file_id}`
+### 📋 `GET /documents`
 
-Real-time document processing notifications.
+List documents with pagination and filtering.
+
+**Request:**
+```bash
+curl -X GET "http://localhost:8000/documents?collection=documents&limit=10&offset=0"
+```
+
+**Response:**
+```json
+{
+  "files": [
+    {
+      "id": "b2e1bfd0-921d-7586-9436-589beae56676",
+      "file_name": "document.pdf",
+      "category": "technical",
+      "collection": "documents",
+      "source_type": "document",
+      "content_hash": "...",
+      "minio_path": "...",
+      "created_at": "2026-04-10T10:00:00Z",
+      "updated_at": "2026-04-10T10:05:00Z",
+      "processing": {
+        "status": "completed",
+        "progress": 100,
+        "total": 100,
+        "current_step": "Completed",
+        "error_message": null,
+        "chunks_created": 25,
+        "started_at": "2026-04-10T10:00:00Z",
+        "completed_at": "2026-04-10T10:05:00Z"
+      }
+    }
+  ],
+  "total": 42,
+  "limit": 10,
+  "offset": 0,
+  "page": 1,
+  "total_pages": 5
+}
+```
+
+---
+
+### 🌐 `WebSocket /ws/collection/{collection}`
+
+Real-time document processing notifications per collection.
 
 **Messages:**
 - `connected`: Connection established

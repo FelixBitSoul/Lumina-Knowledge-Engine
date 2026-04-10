@@ -165,7 +165,7 @@ def _build_response_data(task_id: str, file_id: str, filename: str, category: st
         "category": category,
         "collection": collection,
         "status": "pending",
-        "websocket_url": f"ws://{websocket_host}:{settings.api.port}/ws/{file_id}",
+        "websocket_url": f"ws://{websocket_host}:{settings.api.port}/ws/collection/{collection}",
         "message": "Document uploaded successfully. Processing in background.",
     }
 

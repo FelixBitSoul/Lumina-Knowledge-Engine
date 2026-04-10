@@ -205,7 +205,7 @@ const Inspector: React.FC = () => {
                       {step.charAt(0).toUpperCase() + step.slice(1)}
                     </span>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${STATUS_STYLES[status as string] || STATUS_STYLES.default}`}>
-                      {status}
+                      {String(status)}
                     </span>
                   </div>
                 ))}
