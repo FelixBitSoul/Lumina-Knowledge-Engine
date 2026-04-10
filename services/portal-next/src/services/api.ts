@@ -10,6 +10,7 @@ export const searchAPI = {
     page: number = 1
   ) => {
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const params = new URLSearchParams();
       params.append('query', query);
       params.append('page_size', page_size.toString());
@@ -40,7 +41,7 @@ export const searchAPI = {
         }
       }
 
-      const response = await fetch(`http://localhost:8000/search?${params.toString()}`);
+      const response = await fetch(`${apiUrl}/search?${params.toString()}`);
 
       if (!response.ok) throw new Error('Backend service unavailable');
 
@@ -56,7 +57,8 @@ export const searchAPI = {
 export const collectionsAPI = {
   getCollections: async (): Promise<{ collections: string[]; count: number }> => {
     try {
-      const response = await fetch('http://localhost:8000/collections');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/collections`);
       if (!response.ok) throw new Error('Failed to fetch collections');
       return response.json();
     } catch (error) {
@@ -66,7 +68,8 @@ export const collectionsAPI = {
   },
   getCollectionDetails: async (collection: string): Promise<CollectionDetails> => {
     try {
-      const response = await fetch(`http://localhost:8000/collections/${collection}`);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/collections/${collection}`);
       if (!response.ok) throw new Error('Failed to fetch collection details');
       return response.json();
     } catch (error) {
@@ -76,7 +79,8 @@ export const collectionsAPI = {
   },
   createCollection: async (name: string, description: string): Promise<{ collection: string }> => {
     try {
-      const response = await fetch('http://localhost:8000/collections', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/collections`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,9 +99,10 @@ export const collectionsAPI = {
 export const chunksAPI = {
   getChunkDetails: async (chunkId: string, collection: string): Promise<ChunkDetails> => {
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const params = new URLSearchParams();
       params.append('collection', collection);
-      const response = await fetch(`http://localhost:8000/documents/chunks/${chunkId}?${params.toString()}`);
+      const response = await fetch(`${apiUrl}/documents/chunks/${chunkId}?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch chunk details');
       return response.json();
     } catch (error) {
@@ -108,19 +113,21 @@ export const chunksAPI = {
 };
 
 export const filesAPI = {
-  getFiles: async (collection: string, limit: number = 20, offset: number = 0): Promise<{ files: any[] }> => {
+  getFiles: async (collection: string, limit: number = 10, offset: number = 0): Promise<{ files: any[], total: number }> => {
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const params = new URLSearchParams();
       if (collection) {
         params.append('collection', collection);
       }
       params.append('limit', limit.toString());
       params.append('offset', offset.toString());
-      const response = await fetch(`http://localhost:8000/documents?${params.toString()}`);
+      const response = await fetch(`${apiUrl}/documents?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch files');
       const data = await response.json();
       return {
-        files: data
+        files: data.files,
+        total: data.total
       };
     } catch (error) {
       console.error('Failed to fetch files:', error);
@@ -129,7 +136,8 @@ export const filesAPI = {
   },
   getFile: async (fileId: string): Promise<any> => {
     try {
-      const response = await fetch(`http://localhost:8000/documents/${fileId}`);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/documents/${fileId}`);
       if (!response.ok) throw new Error('Failed to fetch file details');
       return response.json();
     } catch (error) {
@@ -139,10 +147,11 @@ export const filesAPI = {
   },
   addMetadata: async (fileId: string, key: string, value: string): Promise<{ message: string }> => {
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const params = new URLSearchParams();
       params.append('key', key);
       params.append('value', value);
-      const response = await fetch(`http://localhost:8000/documents/${fileId}/metadata`, {
+      const response = await fetch(`${apiUrl}/documents/${fileId}/metadata`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -158,7 +167,8 @@ export const filesAPI = {
   },
   deleteMetadata: async (fileId: string, key: string): Promise<{ message: string }> => {
     try {
-      const response = await fetch(`http://localhost:8000/documents/${fileId}/metadata/${key}`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/documents/${fileId}/metadata/${key}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete metadata');
@@ -170,10 +180,11 @@ export const filesAPI = {
   },
   deleteFile: async (fileId: string, collection: string, filename: string): Promise<{ file_id: string; status: string; message: string }> => {
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const params = new URLSearchParams();
       params.append('collection', collection);
       params.append('filename', filename);
-      const response = await fetch(`http://localhost:8000/documents/${fileId}?${params.toString()}`, {
+      const response = await fetch(`${apiUrl}/documents/${fileId}?${params.toString()}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete file');

@@ -14,6 +14,7 @@ This directory contains the code quality and best practices rules for the Lumina
 - **performance.md**: Performance considerations and optimization
 - **security.md**: Security best practices
 - **compliance.md**: Industry standards and project-specific compliance
+- **react.md**: React development best practices and coding standards
 
 ## Usage
 
@@ -22,7 +23,7 @@ These rules are referenced by AI coding agents and human developers to ensure co
 ## Priority Order
 
 1. **Core principles** (core.md) - foundational rules that apply to all code
-2. **Language-specific rules** (naming.md) - conventions for specific programming languages
+2. **Language-specific rules** (naming.md, react.md) - conventions for specific languages and frameworks
 3. **Architecture rules** (organization.md) - structural guidelines
 4. **Quality rules** (maintainability.md, error-handling.md) - code quality standards
 5. **Specialized rules** (performance.md, security.md, compliance.md) - domain-specific guidelines

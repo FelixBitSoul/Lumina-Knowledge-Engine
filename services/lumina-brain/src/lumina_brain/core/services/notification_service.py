@@ -41,42 +41,46 @@ class NotificationService:
             )
         return self.async_client
     
-    def publish_document_completion(self, file_id: str, metadata: dict = None):
+    def publish_document_completion(self, file_id: str, metadata: dict = None, collection: str = None):
         """Publish document completion notification"""
         message = {
             "file_id": file_id,
             "status": "completed",
             "timestamp": self._get_timestamp(),
+            "collection": collection,
             **(metadata or {})
         }
         self._publish_sync("document_updates", message)
     
-    def publish_document_failure(self, file_id: str, error: str):
+    def publish_document_failure(self, file_id: str, error: str, collection: str = None):
         """Publish document failure notification"""
         message = {
             "file_id": file_id,
             "status": "failed",
             "error": error,
-            "timestamp": self._get_timestamp()
+            "timestamp": self._get_timestamp(),
+            "collection": collection
         }
         self._publish_sync("document_updates", message)
     
-    def publish_document_progress(self, file_id: str, progress_data: dict):
+    def publish_document_progress(self, file_id: str, progress_data: dict, collection: str = None):
         """Publish document progress notification"""
         message = {
             "file_id": file_id,
             "status": "processing",
             "timestamp": self._get_timestamp(),
+            "collection": collection,
             **progress_data
         }
         self._publish_sync("document_updates", message)
     
-    async def publish_notification(self, file_id: str, status: str, **kwargs):
+    async def publish_notification(self, file_id: str, status: str, collection: str = None, **kwargs):
         """Publish generic notification"""
         message = {
             "file_id": file_id,
             "status": status,
             "timestamp": self._get_timestamp(),
+            "collection": collection,
             **kwargs
         }
         await self._publish_async("document_updates", message)

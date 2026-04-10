@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -65,29 +65,48 @@ def _build_list_query(db, collection, category, status):
     return query
 
 
-@router.get("", response_model=List[dict])
+@router.get("", response_model=Dict[str, Any])
 def list_documents(
     collection: Optional[str] = Query(None, description="Filter by collection"),
     category: Optional[str] = Query(None, description="Filter by category"),
     status: Optional[DocumentStatus] = Query(None, description="Filter by processing status"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of results"),
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     db: Session = Depends(get_db),
 ):
     """
-    List documents with optional filtering
+    List documents with optional filtering and pagination
     """
     logger.info(f"[DOCUMENTS] Listing documents with filters: collection={collection}, category={category}, status={status}, limit={limit}, offset={offset}")
     
-    # Build and execute query
+    # Build query
     query = _build_list_query(db, collection, category, status)
+    
+    # Get total count
+    total_count = query.count()
+    
+    # Get paginated results
     documents = query.limit(limit).offset(offset).all()
     
     # Build response
     result = [_build_document_response(doc) for doc in documents]
     
-    logger.info(f"[DOCUMENTS] Found {len(result)} documents")
-    return result
+    # Calculate pagination info
+    page = offset // limit + 1
+    total_pages = (total_count + limit - 1) // limit
+    
+    # Return paginated response
+    response = {
+        "files": result,
+        "total": total_count,
+        "limit": limit,
+        "offset": offset,
+        "page": page,
+        "total_pages": total_pages
+    }
+    
+    logger.info(f"[DOCUMENTS] Found {len(result)} documents out of {total_count} total")
+    return response
 
 
 def _build_document_detail_response(document):

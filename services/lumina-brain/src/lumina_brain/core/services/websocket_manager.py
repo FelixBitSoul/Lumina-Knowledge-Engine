@@ -100,11 +100,22 @@ class ConnectionManager:
             data: Notification data
         """
         file_id = data.get('file_id')
-        logger.info(f"[WS MANAGER] Processing notification for file_id: {file_id}, status: {data.get('status')}")
+        collection = data.get('collection')
+        logger.info(f"[WS MANAGER] Processing notification for file_id: {file_id}, collection: {collection}, status: {data.get('status')}")
+        
+        # Send to file-specific room
         if file_id and file_id in self.active_connections:
             await self.broadcast(data, file_id)
         elif file_id:
             logger.info(f"[WS MANAGER] Room {file_id} does not exist, skipping broadcast")
+        
+        # Send to collection room
+        if collection:
+            collection_room = f"collection:{collection}"
+            if collection_room in self.active_connections:
+                await self.broadcast(data, collection_room)
+            else:
+                logger.info(f"[WS MANAGER] Collection room {collection_room} does not exist, skipping broadcast")
 
     async def start_notification_listener(self):
         """Start listening for notifications"""
